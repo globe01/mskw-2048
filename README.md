@@ -83,6 +83,8 @@ index.html
 favicon.svg
 styles.css
 app.js
+upstream-tile.js
+upstream-grid.js
 server.js
 admin.html
 admin.css
@@ -194,8 +196,57 @@ POST /api/admin/restore
 ```
 
 管理员接口需要请求头 `X-Admin-Token`。服务器会校验模式、昵称、分数、最高块和时长，每种模式只保留前五名。
-## Upstream source and license
+## 上游来源与许可证
 
-This repository is forked from Gabriele Cirulli/2048. The original MIT-licensed implementation is retained in the js/, style/, and meta/ directories while the activity UI and server features are implemented in the files at the repository root.
+本项目 Fork 自 [Gabriele Cirulli/2048](https://github.com/gabrielecirulli/2048)，上游项目采用 MIT License。原作者版权声明和完整许可证文本保留在仓库根目录的 [`LICENSE.txt`](LICENSE.txt) 中：
 
-The Ma Shang Kai Wan interface, timed solo/co-op modes, touch controls, leaderboards, score submission, and admin console are project additions.
+```text
+Copyright (c) 2014 Gabriele Cirulli
+```
+
+上游棋盘模型和移动合并顺序保留在 `js/tile.js`、`js/grid.js` 等文件中。为适配当前服务器的静态文件白名单，首页运行时加载根目录的 `upstream-tile.js` 和 `upstream-grid.js`，两份文件与 `js/` 中的上游实现保持一致。活动版页面通过 `app.js` 接入计时、双人分工、触屏、排行榜和后台功能。当前页面的 UI、活动规则、服务器接口和品牌图标属于本项目新增内容。详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+
+## 本地测试
+
+### 1. 检查代码
+
+```powershell
+npm run check
+node --check admin.js
+```
+
+### 2. 启动本地服务
+
+```powershell
+$env:PORT="3010"
+$env:HOST="127.0.0.1"
+$env:ADMIN_TOKEN="local-test-token"
+node server.js
+```
+
+### 3. 打开页面
+
+游戏：<http://127.0.0.1:3010/>
+
+管理后台：<http://127.0.0.1:3010/admin>
+
+### 4. 现场功能验收
+
+- 单人模式：确认默认 30 秒，四个方向键和触屏滑动都能移动。
+- 双人模式：确认默认 45 秒，上下键与左右键分别由两名参与者控制。
+- 快速连续按键：确认输入不会被吞掉，棋盘仍按顺序响应。
+- 无效方向：确认不会生成新块、加分或提前结束。
+- 棋盘判定：填满但仍可合并时继续，完全无法移动时结束。
+- 结束本局：确认需要二次确认，结束后仍能保存成绩。
+- 成绩弹窗：关闭弹窗后点击“保存上一局成绩”仍可提交。
+- 排行榜：分别测试单人榜和双人榜，再测试备份、清空和恢复。
+- 手机端：在同一局中测试左右、上下滑动以及横竖屏尺寸变化。
+
+### 5. 接口检查
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:3010/api/health
+Invoke-WebRequest http://127.0.0.1:3010/api/leaderboard
+```
+
+停止服务时，在运行 `node server.js` 的窗口按 `Ctrl+C`。

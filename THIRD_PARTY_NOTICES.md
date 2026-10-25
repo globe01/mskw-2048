@@ -1,9 +1,9 @@
-# Third-party notices
+# 第三方声明
 
 ## 2048
 
-This project is forked from Gabriele Cirulli/2048, which is distributed under the MIT License. The original source files and related assets are retained in this repository.
+本项目 Fork 自 [Gabriele Cirulli/2048](https://github.com/gabrielecirulli/2048)，上游项目采用 MIT License。仓库中的 `js/`、`style/`、`meta/` 和相关原始资源来自上游项目或其历史版本。
 
 Copyright (c) 2014 Gabriele Cirulli
 
-See LICENSE.txt for the complete license text.
+完整许可证文本见仓库根目录的 [`LICENSE.txt`](LICENSE.txt)。按照 MIT License 的要求，本项目保留原作者版权声明和许可证文本。

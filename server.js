@@ -85,7 +85,7 @@ function validScore(body) {
 }
 function serveStatic(req, res, pathname) {
   const requested = pathname === '/' ? '/index.html' : pathname === '/admin' ? '/admin.html' : pathname;
-  const publicFiles = new Set(['/index.html', '/styles.css', '/app.js', '/admin.html', '/admin.css', '/admin.js', '/favicon.svg', '/manifest.webmanifest', '/sw.js']);
+  const publicFiles = new Set(['/index.html', '/styles.css', '/app.js', '/admin.html', '/admin.css', '/admin.js', '/favicon.svg', '/upstream-tile.js', '/upstream-grid.js', '/manifest.webmanifest', '/sw.js']);
   if (!publicFiles.has(requested)) return json(res, 404, { error: 'not_found' });
   const file = path.resolve(ROOT, `.${requested}`);
   const rootPrefix = `${path.resolve(ROOT)}${path.sep}`;

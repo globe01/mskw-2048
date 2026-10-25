@@ -142,17 +142,59 @@
   function valueBoard() { const values = emptyBoard(); tiles.forEach((tile) => { values[tile.r][tile.c] = tile.value; }); return values; }
   function canMove() { const values = valueBoard(); for (let r = 0; r < SIZE; r += 1) for (let c = 0; c < SIZE; c += 1) { if (!values[r][c]) return true; if (c < SIZE - 1 && values[r][c] === values[r][c + 1]) return true; if (r < SIZE - 1 && values[r][c] === values[r + 1][c]) return true; } return false; }
   function orderedLine(index, direction) { const cells = []; for (let i = 0; i < SIZE; i += 1) { const r = direction === 'left' || direction === 'right' ? index : i; const c = direction === 'left' || direction === 'right' ? i : index; cells.push([r, c]); } if (direction === 'right' || direction === 'down') cells.reverse(); return cells; }
+  // Adapt the upstream Grid/Tile traversal to the activity UI's animation
+  // metadata. The DOM and timer stay activity-specific; movement and merge
+  // ordering follow the original 2048 engine.
   function calculateMove(direction) {
-    const next = []; const moves = []; const merged = []; let gained = 0;
-    for (let index = 0; index < SIZE; index += 1) {
-      const cells = orderedLine(index, direction); const line = cells.map(([r, c]) => tileAt(r, c)).filter(Boolean); let target = 0;
-      for (let i = 0; i < line.length; i += 1) {
-        const source = line[i]; const [r, c] = cells[target]; const following = line[i + 1];
-        if (following && following.value === source.value) { const result = { id: source.id, value: source.value * 2, r, c, spawned: false }; next.push(result); moves.push({ id: source.id, r, c }); moves.push({ id: following.id, r, c }); merged.push({ primary: result, consumed: following.id }); gained += result.value; i += 1; }
-        else { const result = { id: source.id, value: source.value, r, c, spawned: false }; next.push(result); moves.push({ id: source.id, r, c }); }
-        target += 1;
+    const vectors = { up: { x: 0, y: -1 }, right: { x: 1, y: 0 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 } };
+    const vector = vectors[direction];
+    const grid = new Grid(SIZE);
+    tiles.forEach((source) => {
+      const tile = new Tile({ x: source.c, y: source.r }, source.value);
+      tile.id = source.id;
+      grid.insertTile(tile);
+    });
+
+    const traversals = { x: [], y: [] };
+    for (let position = 0; position < SIZE; position += 1) { traversals.x.push(position); traversals.y.push(position); }
+    if (vector.x === 1) traversals.x.reverse();
+    if (vector.y === 1) traversals.y.reverse();
+
+    const moves = []; const merged = []; let gained = 0;
+    const moveTile = (tile, cell) => {
+      grid.cells[tile.x][tile.y] = null;
+      grid.cells[cell.x][cell.y] = tile;
+      tile.updatePosition(cell);
+    };
+    const farthestPosition = (cell) => {
+      let previous;
+      do {
+        previous = cell;
+        cell = { x: previous.x + vector.x, y: previous.y + vector.y };
+      } while (grid.withinBounds(cell) && grid.cellAvailable(cell));
+      return { farthest: previous, next: cell };
+    };
+
+    traversals.x.forEach((x) => traversals.y.forEach((y) => {
+      const cell = { x, y }; const tile = grid.cellContent(cell);
+      if (!tile) return;
+      const positions = farthestPosition(cell); const nextTile = grid.cellContent(positions.next);
+      if (nextTile && nextTile.value === tile.value && !nextTile.mergedFrom) {
+        const result = new Tile(positions.next, tile.value * 2);
+        result.id = tile.id;
+        result.mergedFrom = [tile, nextTile];
+        grid.insertTile(result); grid.removeTile(tile); tile.updatePosition(positions.next);
+        moves.push({ id: tile.id, r: positions.next.y, c: positions.next.x });
+        moves.push({ id: nextTile.id, r: positions.next.y, c: positions.next.x });
+        merged.push({ primary: { id: result.id, value: result.value, r: result.y, c: result.x, spawned: false }, consumed: nextTile.id });
+        gained += result.value;
+      } else {
+        moveTile(tile, positions.farthest);
+        moves.push({ id: tile.id, r: positions.farthest.y, c: positions.farthest.x });
       }
-    }
+    }));
+
+    const next = []; grid.eachCell((x, y, tile) => { if (tile) next.push({ id: tile.id, value: tile.value, r: y, c: x, spawned: false }); });
     const changed = moves.some((move) => { const old = tiles.find((tile) => tile.id === move.id); return old && (old.r !== move.r || old.c !== move.c); });
     return { next, moves, merged, gained, changed };
   }
