@@ -1254,3 +1254,45 @@ body{
   .result-numbers div+div{padding-left:15px}
   .result-numbers strong{font-size:31px}
 }
+
+/* Leaderboard refinement: compact score table with natural row rhythm. */
+.leaderboard ol{
+  align-content:start;
+  align-items:start;
+  grid-auto-rows:max-content;
+}
+.leaderboard li,
+.leaderboard li.rank-1{
+  align-self:start;
+  min-height:70px;
+}
+.leaderboard li.rank-1{min-height:84px}
+.leaderboard li::before,
+.leaderboard li.rank-1::before{
+  content:counter(rank);
+  justify-self:start;
+  color:#7c89a3;
+  font-size:14px;
+  font-weight:500;
+  letter-spacing:0;
+}
+.leaderboard li.rank-1::before{color:#536ba6;font-size:18px;font-weight:650}
+.leaderboard li.rank-1{
+  padding:14px 0 13px 11px;
+  border-left:2px solid #6075bb;
+  background:linear-gradient(90deg,rgba(91,111,177,.06),transparent 68%);
+}
+.leader-bar,
+.leaderboard li.rank-1 .leader-bar{
+  width:min(100%,260px);
+  height:1px;
+  margin-top:1px;
+  background:#e5e8ef;
+}
+.leader-bar i,
+.leaderboard li.rank-1 .leader-bar i{height:100%;background:#6c7fb6}
+.leaderboard li.rank-1 .leader-bar i{background:#536ba6}
+@media(max-width:560px){
+  .leaderboard li.rank-1{min-height:78px;padding-left:9px}
+  .leader-bar,.leaderboard li.rank-1 .leader-bar{width:min(100%,220px)}
+}
