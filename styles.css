@@ -1383,3 +1383,40 @@ body{
   .leaderboard li.rank-1{grid-column:auto;min-height:108px;padding:16px 15px}
   .leaderboard li.rank-1 .leader-score{font-size:27px}
 }
+
+/* Poster palette: electric blue and violet accents with a white architectural base. */
+.leaderboard li.rank-1{
+  background:linear-gradient(135deg,#153b9d 0%,#1d65df 62%,#6725c7 100%);
+  box-shadow:0 16px 30px rgba(31,70,166,.22),inset 0 1px 0 rgba(255,255,255,.18);
+}
+.leaderboard li.rank-1::after{
+  content:"";
+  position:absolute;right:0;top:0;width:38%;height:2px;
+  background:#d52be1;
+  opacity:.9;
+}
+.leaderboard li.rank-2{background:#f2f7ff;border-top-color:#2a79ef;border-color:#d5e2f7}
+.leaderboard li.rank-3{background:#fcf5ff;border-top-color:#9b36d4;border-color:#eadcf3}
+.leaderboard li.rank-4,.leaderboard li.rank-5{background:#f7f8ff;border-top-color:#8a79db}
+.leaderboard li.rank-2 .leader-bar i{background:#2b79ed}
+.leaderboard li.rank-3 .leader-bar i{background:#9a36d3}
+.leaderboard li.rank-4 .leader-bar i,.leaderboard li.rank-5 .leader-bar i{background:#8373d0}
+
+/* The board rests slightly smaller in the ready state and settles into place on start. */
+.board-wrap{
+  transform-origin:50% 50%;
+  transition:transform .58s cubic-bezier(.16,1,.3,1),opacity .32s ease;
+}
+.board-wrap.ready-stage{
+  transform:scale(.9);
+  opacity:.9;
+}
+body{
+  background:
+    radial-gradient(72% 42% at 50% -8%,rgba(58,119,241,.12),transparent 72%),
+    radial-gradient(48% 38% at 100% 100%,rgba(139,45,220,.08),transparent 72%),
+    #f4f7fc;
+}
+@media(prefers-reduced-motion:reduce){
+  .board-wrap{transition:none}
+}
