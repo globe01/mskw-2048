@@ -6,7 +6,7 @@
   const labels = { solo: '单人极速', duo: '双人协作' };
   const errors = { invalid_credentials: '账号或密码不正确', login_rate_limited: '尝试次数过多，请 15 分钟后重试', admin_not_configured: '尚未配置管理员账号，请在服务器运行 npm run admin:setup', admin_required: '登录已过期，请重新登录', invalid_csrf: '登录状态已更新，请刷新页面后重试', invalid_backup: '备份格式不正确，未修改成绩', backup_failed: '备份失败，请检查服务器存储', clear_failed: '清空未完成，请刷新查看当前数据', invalid_json: '文件或请求格式不正确' };
   let session = null, state = null, mode = 'solo', page = 0, busy = false, refreshing = false, generation = 0;
-  let animations = [];
+  let modeAnimation = null, modeSwitchVersion = 0;
   const pageSize = 20;
   const number = value => Number(value).toLocaleString('zh-CN');
   const formatTime = value => new Date(value).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -29,6 +29,10 @@
   }
   function showLogin(error = '') {
     generation += 1;
+    modeSwitchVersion += 1;
+    finishModeSwitch();
+    content.dataset.mode = mode;
+    content.setAttribute('aria-labelledby', 'tab-' + mode);
     session = null; state = null;
     dashboard.hidden = true; loginView.hidden = false;
     $('#password-input').value = '';
@@ -150,8 +154,9 @@
       row.append(info, link); list.append(row);
     });
   }
-  function render() {
-    if (!state) return;
+  function render(force = false) {
+    // Refresh can arrive during a flip. Keep its data, then draw it on the new face.
+    if (!state || (content.inert && !force)) return;
     const data = entries(), total = data.reduce((sum, entry) => sum + Number(entry.score), 0);
     $('#round-count').textContent = number(data.length);
     const highestScore = data.length ? data.reduce((best, entry) => Number(entry.score) > Number(best.score) ? entry : best) : null;
@@ -164,19 +169,63 @@
     $('#duration-caption').textContent = durations.length ? (durations.length === 1 ? durations[0] + ' 秒挑战' : durations.length + ' 种挑战时长 · 混合统计') : '时长 —';
     renderDistribution(data); renderActivity(data); renderTable(); renderBackups();
   }
-  function switchMode(next) {
+  function finishModeSwitch() {
+    if (modeAnimation) modeAnimation.cancel();
+    modeAnimation = null;
+    content.inert = false;
+    content.removeAttribute('aria-busy');
+  }
+  async function switchMode(next) {
     if (mode === next) return;
     const direction = next === 'duo' ? 1 : -1;
     mode = next; page = 0; $('#search-input').value = '';
     $('.tabs').classList.toggle('is-duo', mode === 'duo');
     document.querySelectorAll('.tab').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-selected', active); button.tabIndex = active ? 0 : -1; });
-    animations.forEach(animation => animation.cancel()); animations = [];
-    content.dataset.mode = mode; content.setAttribute('aria-labelledby', 'tab-' + mode);
-    render();
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      [$('.metrics'), $('.charts'), $('.scores-panel')].forEach((element, index) => {
-        animations.push(element.animate([{ opacity: .25, transform: 'translateX(' + direction * 12 + 'px)' }, { opacity: 1, transform: 'translateX(0)' }], { duration: 340, delay: index * 35, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' }));
-      });
+    const version = ++modeSwitchVersion;
+    // Capture the current pose before cancelling, so a rapid reversal stays continuous.
+    const pose = getComputedStyle(content);
+    const current = { transform: pose.transform, opacity: pose.opacity };
+    if (modeAnimation) modeAnimation.cancel();
+    const drawFace = () => {
+      content.dataset.mode = mode;
+      content.setAttribute('aria-labelledby', 'tab-' + mode);
+      render(true);
+    };
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !content.animate) {
+      finishModeSwitch(); drawFace(); return;
+    }
+    const rest = { transform: 'perspective(2400px) rotateY(0deg)', opacity: 1 };
+    content.inert = true;
+    content.setAttribute('aria-busy', 'true');
+    try {
+      if (content.dataset.mode !== mode) {
+        modeAnimation = content.animate([
+          current,
+          { transform: 'perspective(2400px) rotateY(' + -direction * 88 + 'deg)', opacity: 0 }
+        ], { duration: 180, easing: 'cubic-bezier(.55,0,.85,.45)', fill: 'forwards' });
+        await modeAnimation.finished;
+        if (version !== modeSwitchVersion) return;
+        // Swap the actual data only at the edge; never show mirrored or mixed rankings.
+        drawFace();
+        modeAnimation.cancel();
+        modeAnimation = content.animate([
+          { transform: 'perspective(2400px) rotateY(' + direction * 88 + 'deg)', opacity: 0 },
+          rest
+        ], { duration: 360, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' });
+      } else {
+        // Switching back before the edge simply returns the current face to rest.
+        drawFace();
+        modeAnimation = content.animate([current, rest], { duration: 240, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
+      }
+      await modeAnimation.finished;
+    } catch (error) {
+      // Cancellation is expected when another tab or the login view takes over.
+      if (error.name !== 'AbortError') throw error;
+    } finally {
+      if (version === modeSwitchVersion) {
+        finishModeSwitch();
+        render();
+      }
     }
   }
 
