@@ -1347,6 +1347,9 @@ body{
 .leaderboard li.rank-2{border-top:2px solid #7185bd}
 .leaderboard li.rank-3{border-top:2px solid #9c79b8}
 .leaderboard li.rank-4,.leaderboard li.rank-5{border-top:2px solid #cbd4e5}
+.leaderboard li.rank-2{background:#f3f6fd;border-color:#d7e0f1}
+.leaderboard li.rank-3{background:#faf5fc;border-color:#e8dff0}
+.leaderboard li.rank-4,.leaderboard li.rank-5{background:#f7f8fb}
 .leaderboard li.rank-1 .leader-main{gap:7px}
 .leaderboard li.rank-1 .leader-name{color:#fff;font-size:20px;font-weight:800}
 .leaderboard li.rank-1 .leader-meta{color:rgba(255,255,255,.68);font-size:11px}
@@ -1360,6 +1363,15 @@ body{
 .leaderboard li:not(.rank-1) .leader-score small{color:#8b98b0}
 .leaderboard li:not(.rank-1) .leader-bar{width:100%;height:2px;margin-top:2px;background:#e0e6f0}
 .leaderboard li:not(.rank-1) .leader-bar i{background:#657db9}
+.result-card #submit-hint,
+#submit-hint{
+  position:relative;z-index:1;
+  margin:12px 0 0;
+  color:#8d98aa;
+  font-family:"PingFang SC","Noto Sans SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:11px;font-weight:500;line-height:1.6;
+  letter-spacing:.01em;text-align:center;
+}
 @media(min-width:561px){
   .leaderboard li.rank-2:last-child,
   .leaderboard li.rank-3:last-child,
