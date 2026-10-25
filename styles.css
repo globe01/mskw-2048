@@ -1027,3 +1027,64 @@ body{
   .result-numbers div{min-height:94px;padding:14px 13px 13px}
   .result-numbers strong{font-size:30px}
 }
+
+/* Leaderboard: make the top five read like a small, calm podium. */
+.leaderboard ol{align-items:stretch}
+.leaderboard li{
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(83,104,157,.11);
+  background:linear-gradient(135deg,#fafbfe,#f3f6fb);
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+.leaderboard li:hover{
+  transform:translateY(-1px);
+  border-color:rgba(78,106,194,.22);
+  box-shadow:0 7px 16px rgba(43,66,124,.08);
+}
+.leaderboard li::before{
+  display:grid;
+  place-items:center;
+  width:26px;height:26px;
+  border-radius:9px;
+  color:#7f8daa;
+  background:#edf1f8;
+  font-size:10px;font-weight:900;
+  font-variant-numeric:tabular-nums;
+}
+.leaderboard li.rank-1{
+  min-height:88px;
+  padding:14px 13px;
+  border-color:rgba(112,93,221,.16);
+  background:linear-gradient(110deg,#f0efff 0%,#faf7ff 72%,#fff 100%);
+  box-shadow:inset 3px 0 0 #8067dd;
+}
+.leaderboard li.rank-1::before{
+  width:30px;height:30px;
+  color:#fff;
+  background:linear-gradient(145deg,#e2b761,#b77d35);
+  box-shadow:0 4px 9px rgba(185,127,49,.2);
+}
+.leaderboard li.rank-1 .leader-name{color:#354676;font-size:14px}
+.leaderboard li.rank-1 .leader-score{color:#182b58;font-size:20px}
+.leaderboard li.rank-1 .leader-bar{height:5px}
+.leaderboard li.rank-1 .leader-bar i{background:linear-gradient(90deg,#6b73e8,#a45bd5)}
+.leaderboard li.rank-2::before{
+  color:#536783;
+  background:linear-gradient(145deg,#e8edf5,#cbd5e5);
+}
+.leaderboard li.rank-3::before{
+  color:#8c5b3a;
+  background:linear-gradient(145deg,#f2dfd1,#ddb38d);
+}
+.leaderboard li.rank-2 .leader-bar i{background:linear-gradient(90deg,#6b91d7,#7396c9)}
+.leaderboard li.rank-3 .leader-bar i{background:linear-gradient(90deg,#c48e68,#d6a45f)}
+.leaderboard li.rank-4::before,.leaderboard li.rank-5::before{background:#f0f2f6}
+.leaderboard li.rank-4 .leader-bar i,.leaderboard li.rank-5 .leader-bar i{background:linear-gradient(90deg,#8da4d4,#9ca9bf)}
+.leaderboard .leader-score small{display:block;color:#8b98b2;font-size:9px}
+@media(max-width:560px){
+  .leaderboard li.rank-1{min-height:82px;padding:12px 11px}
+  .leaderboard li.rank-1 .leader-score{font-size:18px}
+  .leaderboard ol{grid-template-columns:1fr}
+  .leaderboard li.rank-top{grid-column:auto}
+}

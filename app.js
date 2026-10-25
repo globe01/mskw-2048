@@ -348,7 +348,7 @@
     const data = (leaderboards()[mode] || []).slice(0, 5); const highest = Math.max(1, ...data.map((entry) => Number(entry.score) || 0));
     leaderboardEl.replaceChildren(); leaderboardEmpty.hidden = data.length > 0;
     data.forEach((entry, index) => {
-      const item = document.createElement('li'); item.className = index === 0 ? 'rank-top' : '';
+      const item = document.createElement('li'); item.className = `rank-${index + 1}${index === 0 ? ' rank-top' : ''}`;
       item.style.setProperty('--score-ratio', `${Math.max(index === 0 ? 14 : 7, ((Number(entry.score) || 0) / highest) * 100)}%`);
       const main = document.createElement('div'); main.className = 'leader-main';
       const name = document.createElement('span'); name.className = 'leader-name'; name.textContent = entry.name;
