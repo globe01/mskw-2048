@@ -831,3 +831,34 @@ body{
 /* Touch devices get a direct gesture cue instead of a keyboard diagram. */
 .touch-device .keys{display:none}
 .touch-device .guide{justify-content:center;text-align:center}
+
+/* Upstream 2048 motion: transform-only travel and inner appear/pop keyframes. */
+.tile {
+  left: 0 !important;
+  top: 0 !important;
+  transform: translate3d(
+    calc(var(--col) * (var(--unit) + var(--gap))),
+    calc(var(--row) * (var(--unit) + var(--gap))),
+    0
+  ) !important;
+  transition: transform 100ms ease-in-out !important;
+  will-change: transform;
+}
+.tile-new { z-index: 2; }
+.tile-new .tile-inner {
+  animation: upstream-appear 200ms ease 100ms both !important;
+}
+@keyframes upstream-appear {
+  0% { opacity: 0; transform: scale(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.tile-merged { z-index: 3; }
+.tile-merged .tile-inner {
+  z-index: 20;
+  animation: upstream-pop 200ms ease 100ms both !important;
+}
+@keyframes upstream-pop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}

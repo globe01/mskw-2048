@@ -4,10 +4,7 @@
   const SIZE = 4;
   // Keep the travel animation close to the original 2048 feel. Inputs that
   // arrive during the animation are queued instead of being overwritten.
-  const MOVE_MS = 105;
-  const MERGE_FADE_MS = 120;
-  const MERGE_POP_MS = 150;
-  const SPAWN_MS = 145;
+  const MOVE_MS = 100;
   const INPUT_QUEUE_LIMIT = 8;
   const STORAGE_KEY = 'ma-shang-kai-wan-2048-leaderboards-v1';
   const BACKUP_KEY = 'ma-shang-kai-wan-2048-leaderboards-backup-v1';
@@ -87,16 +84,19 @@
   function positionTile(element, tile) {
     element.style.setProperty('--col', tile.c); element.style.setProperty('--row', tile.r);
     const geometry = tileGeometry(tile);
-    element.style.left = `${geometry.left}px`; element.style.top = `${geometry.top}px`;
+    // The upstream actuator moves the wrapper with a compositor transform.
+    // Keep the wrapper anchored at the tile layer origin so CSS transition
+    // handles every move without layout work on left/top.
+    element.style.left = '0px'; element.style.top = '0px';
     element.style.width = `${geometry.cell}px`; element.style.height = `${geometry.cell}px`;
   }
   function tileClass(value) { return value <= 2048 ? `tile tile-${value}` : 'tile tile-super'; }
   function createTile(tile, animate = false) {
-    const element = document.createElement('div'); element.className = tileClass(tile.value); element.dataset.id = tile.id; element.setAttribute('role', 'gridcell'); element.setAttribute('aria-label', String(tile.value));
-    const inner = document.createElement('div'); inner.className = `tile-inner${animate ? ' tile-new' : ''}`; inner.textContent = tile.value; element.appendChild(inner);
+    const element = document.createElement('div'); element.className = `${tileClass(tile.value)}${animate ? ' tile-new' : ''}`; element.dataset.id = tile.id; element.setAttribute('role', 'gridcell'); element.setAttribute('aria-label', String(tile.value));
+    const inner = document.createElement('div'); inner.className = 'tile-inner'; inner.textContent = tile.value; element.appendChild(inner);
     positionTile(element, tile); tileLayer.appendChild(element); domTiles.set(tile.id, element); return element;
   }
-  function updateTileElement(element, tile) { element.className = tileClass(tile.value); element.dataset.id = tile.id; element.setAttribute('aria-label', String(tile.value)); const inner = element.querySelector('.tile-inner'); inner.className = 'tile-inner'; inner.textContent = tile.value; positionTile(element, tile); }
+  function updateTileElement(element, tile, options = {}) { element.className = tileClass(tile.value); element.dataset.id = tile.id; element.setAttribute('aria-label', String(tile.value)); const inner = element.querySelector('.tile-inner'); inner.className = 'tile-inner'; inner.textContent = tile.value; if (options.position !== false) positionTile(element, tile); }
   function renderStatic() { tileLayer.replaceChildren(); domTiles.clear(); tiles.forEach((tile) => createTile(tile)); scoreEl.textContent = score; maxTileEl.textContent = maxTile || '—'; }
   function showScorePop(amount, tile) {
     if (!amount || !tile) return;
@@ -198,45 +198,92 @@
     const changed = moves.some((move) => { const old = tiles.find((tile) => tile.id === move.id); return old && (old.r !== move.r || old.c !== move.c); });
     return { next, moves, merged, gained, changed };
   }
-  function playAnimation(element, keyframes, options) {
-    if (!element || typeof element.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
-    const animation = element.animate(keyframes, options);
-    return animation.finished.catch(() => undefined);
-  }
   function animateMove(result) {
     animating = true;
     const version = gameVersion;
-    const movementPromises = result.moves.map((move) => {
-      const element = domTiles.get(move.id); if (!element) return Promise.resolve();
-      const before = element.getBoundingClientRect();
-      element.style.transition = 'none';
-      positionTile(element, move);
-      const after = element.getBoundingClientRect();
-      const dx = before.left - after.left; const dy = before.top - after.top;
-      return playAnimation(element, [{ transform: `translate3d(${dx}px,${dy}px,0) scale(1)` }, { transform: 'translate3d(0,0,0) scale(1)' }], { duration: MOVE_MS, easing: 'cubic-bezier(.22,.88,.22,1)', fill: 'forwards' }).then(() => { element.style.transform = ''; element.style.transition = ''; });
+    const mergeByPrimary = new Map(result.merged.map((merge) => [merge.primary.id, merge]));
+
+    // Match the upstream actuator: wrappers move with transform, while the
+    // inner tile owns the original appear/pop keyframes.
+    result.merged.forEach(({ primary }) => {
+      const primaryEl = domTiles.get(primary.id);
+      if (!primaryEl) return;
+      updateTileElement(primaryEl, primary, { position: false });
+      primaryEl.classList.add('tile-merged');
+      primaryEl.style.zIndex = '3';
     });
-    Promise.all(movementPromises).then(() => {
+
+    const nextTiles = result.next.map((tile) => ({ ...tile }));
+    const occupied = new Set(nextTiles.map((tile) => tile.r + ',' + tile.c));
+    const emptyCells = [];
+    for (let r = 0; r < SIZE; r += 1) {
+      for (let c = 0; c < SIZE; c += 1) {
+        if (!occupied.has(r + ',' + c)) emptyCells.push([r, c]);
+      }
+    }
+    let spawned = null;
+    if (emptyCells.length) {
+      const cell = emptyCells[randomInt(emptyCells.length)];
+      spawned = { id: nextId++, value: randomInt(10) === 0 ? 4 : 2, r: cell[0], c: cell[1], spawned: true };
+      createTile(spawned, true);
+    }
+
+    requestAnimationFrame(() => {
       if (version !== gameVersion) return;
-      const mergePromises = [];
-      result.merged.forEach(({ primary, consumed }) => {
-        const consumedEl = domTiles.get(consumed); const primaryEl = domTiles.get(primary.id);
-        if (consumedEl) { consumedEl.style.zIndex = '1'; const consumedInner = consumedEl.querySelector('.tile-inner'); mergePromises.push(playAnimation(consumedInner, [{ opacity: 1, transform: 'translateZ(0) scale(1)' }, { opacity: .42, transform: 'translateZ(0) scale(.985)', offset: .58 }, { opacity: 0, transform: 'translateZ(0) scale(.97)' }], { duration: MERGE_FADE_MS, easing: 'cubic-bezier(.32,0,.72,1)', fill: 'forwards' })); }
-        if (primaryEl) { primaryEl.style.zIndex = '3'; updateTileElement(primaryEl, primary); const primaryInner = primaryEl.querySelector('.tile-inner'); mergePromises.push(playAnimation(primaryInner, [{ transform: 'translateZ(0) scale(.985)' }, { transform: 'translateZ(0) scale(1.035)', offset: .38 }, { transform: 'translateZ(0) scale(.997)', offset: .72 }, { transform: 'translateZ(0) scale(1)' }], { duration: MERGE_POP_MS, easing: 'cubic-bezier(.22,.88,.28,1)', fill: 'none' })); }
-      });
-      tiles.forEach((tile) => { if (!result.next.some((nextTile) => nextTile.id === tile.id) && !result.merged.some((merge) => merge.consumed === tile.id)) { const old = domTiles.get(tile.id); if (old) old.remove(); domTiles.delete(tile.id); } });
-      tiles = result.next; addRandomTile(); const spawned = tiles.find((tile) => tile.spawned); tiles.forEach((tile) => { tile.spawned = false; });
-      tiles.forEach((tile) => { const element = domTiles.get(tile.id) || createTile(tile, false); if (!result.merged.some((merge) => merge.primary.id === tile.id)) updateTileElement(element, tile); });
-      if (spawned) { const spawnEl = domTiles.get(spawned.id); if (spawnEl) { const spawnInner = spawnEl.querySelector('.tile-inner'); mergePromises.push(playAnimation(spawnInner, [{ opacity: 0, transform: 'translateZ(0) scale(.58)' }, { opacity: 1, transform: 'translateZ(0) scale(1.045)', offset: .72 }, { opacity: 1, transform: 'translateZ(0) scale(1)' }], { duration: SPAWN_MS, easing: 'cubic-bezier(.22,.88,.28,1)', fill: 'none' })); } }
-      score += result.gained; tiles.forEach((tile) => { if (tile.value > maxTile) maxTile = tile.value; }); scoreEl.textContent = score; maxTileEl.textContent = maxTile || '—';
-      if (result.gained) showScorePop(result.gained, result.merged[0] && result.merged[0].primary);
-      Promise.all(mergePromises).then(() => {
-        if (version !== gameVersion) return;
-        result.merged.forEach(({ consumed }) => { const consumedEl = domTiles.get(consumed); if (consumedEl) { consumedEl.remove(); domTiles.delete(consumed); } });
-        result.merged.forEach(({ primary }) => { const primaryEl = domTiles.get(primary.id); if (primaryEl) primaryEl.style.zIndex = ''; });
-        animating = false; if (running && performance.now() >= endAt) finishGame('time'); else if (!canMove()) finishGame('no-moves');
-        drainDirectionQueue();
+      result.moves.forEach((move) => {
+        const element = domTiles.get(move.id);
+        if (element) positionTile(element, move);
       });
     });
+
+    window.setTimeout(() => {
+      if (version !== gameVersion) return;
+      const finalTiles = spawned ? nextTiles.concat(spawned) : nextTiles;
+      const finalIds = new Set(finalTiles.map((tile) => tile.id));
+
+      // Keep source wrappers below the result until the upstream pop finishes.
+      tiles.forEach((tile) => {
+        if (!finalIds.has(tile.id) && !result.merged.some((merge) => merge.consumed === tile.id)) {
+          const old = domTiles.get(tile.id);
+          if (old) old.remove();
+          domTiles.delete(tile.id);
+        }
+      });
+      tiles = finalTiles;
+      tiles.forEach((tile) => {
+        const element = domTiles.get(tile.id);
+        if (!element) return;
+        if (!mergeByPrimary.has(tile.id)) updateTileElement(element, tile);
+      });
+
+      score += result.gained;
+      tiles.forEach((tile) => { if (tile.value > maxTile) maxTile = tile.value; });
+      scoreEl.textContent = score;
+      maxTileEl.textContent = maxTile || '\u2014';
+      if (result.gained) showScorePop(result.gained, result.merged[0] && result.merged[0].primary);
+
+      window.setTimeout(() => {
+        if (version !== gameVersion) return;
+        result.merged.forEach(({ consumed }) => {
+          const consumedEl = domTiles.get(consumed);
+          if (consumedEl) consumedEl.remove();
+          domTiles.delete(consumed);
+        });
+        result.merged.forEach(({ primary }) => {
+          const primaryEl = domTiles.get(primary.id);
+          if (primaryEl) {
+            primaryEl.classList.remove('tile-merged');
+            primaryEl.style.zIndex = '';
+          }
+        });
+        const spawnedEl = spawned && domTiles.get(spawned.id);
+        if (spawnedEl) spawnedEl.classList.remove('tile-new');
+        animating = false;
+        if (running && performance.now() >= endAt) finishGame('time');
+        else if (!canMove()) finishGame('no-moves');
+        drainDirectionQueue();
+      }, 205);
+    }, MOVE_MS + 8);
   }
   function drainDirectionQueue() {
     if (!running || animating) return;

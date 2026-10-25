@@ -204,7 +204,7 @@ POST /api/admin/restore
 Copyright (c) 2014 Gabriele Cirulli
 ```
 
-上游棋盘模型和移动合并顺序保留在 `js/tile.js`、`js/grid.js` 等文件中。为适配当前服务器的静态文件白名单，首页运行时加载根目录的 `upstream-tile.js` 和 `upstream-grid.js`，两份文件与 `js/` 中的上游实现保持一致。活动版页面通过 `app.js` 接入计时、双人分工、触屏、排行榜和后台功能。当前页面的 UI、活动规则、服务器接口和品牌图标属于本项目新增内容。详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+上游棋盘模型和移动合并顺序保留在 `js/tile.js`、`js/grid.js` 等文件中。为适配当前服务器的静态文件白名单，首页运行时加载根目录的 `upstream-tile.js` 和 `upstream-grid.js`，两份文件与 `js/` 中的上游实现保持一致。移动、生成和合并动画也按上游 `HTMLActuator` 的分层方式实现：外层方块使用 100ms transform 过渡，内层使用 `appear` / `pop` CSS 动画，避免活动版自制 Web Animations 造成的卡顿。活动版页面通过 `app.js` 接入计时、双人分工、触屏、排行榜和后台功能。当前页面的 UI、活动规则、服务器接口和品牌图标属于本项目新增内容。详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 
 ## 本地测试
 
