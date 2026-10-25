@@ -2,6 +2,7 @@
   'use strict';
 
   const SIZE = 4;
+  const compareResults = window.MskwRanking.compare;
   const STORAGE_KEY = 'ma-shang-kai-wan-2048-leaderboards-v1';
   const BACKUP_KEY = 'ma-shang-kai-wan-2048-leaderboards-backup-v1';
   const SETTINGS_KEY = 'ma-shang-kai-wan-2048-settings-v1';
@@ -55,7 +56,10 @@
 
   const loadJson = (key, fallback) => { if (memoryStorage.has(key)) return memoryStorage.get(key); try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; } };
   const saveJson = (key, value) => { memoryStorage.set(key, value); try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) { /* 离线文件或存储受限时，本次页面仍可继续使用。 */ } };
-  const leaderboards = () => remoteLeaderboards || loadJson(STORAGE_KEY, { solo: [], duo: [] });
+  const leaderboards = () => {
+    const data = remoteLeaderboards || localLeaderboards();
+    return { solo: [...(data.solo || [])].sort(compareResults), duo: [...(data.duo || [])].sort(compareResults) };
+  };
   const localLeaderboards = () => loadJson(STORAGE_KEY, { solo: [], duo: [] });
   async function apiRequest(endpoint, options = {}) {
     if (window.location.protocol === 'file:') throw new Error('offline');
@@ -293,7 +297,7 @@
   }
   function normalizeDuration() { const parsed = Number.parseInt(durationInput.value, 10); const value = Math.max(5, Math.min(180, Number.isFinite(parsed) ? parsed : defaults[mode])); durationInput.value = value; duration = value; const settings = loadJson(SETTINGS_KEY, {}); settings[mode] = value; saveJson(SETTINGS_KEY, settings); updateTimerDisplay(duration * 1000); }
   function previewDuration() { const value = Number.parseInt(durationInput.value, 10); updateTimerDisplay(Math.max(5, Math.min(180, Number.isFinite(value) ? value : duration)) * 1000); }
-  function resultRankFor(result) { const entries = leaderboards()[result.mode] || []; const candidate = { score: result.score, maxTile: result.maxTile, at: result.at }; const ranked = [...entries, candidate].sort((a, b) => b.score - a.score || b.maxTile - a.maxTile || a.at - b.at); const rank = ranked.indexOf(candidate) + 1; return rank <= 5 ? rank : null; }
+  function resultRankFor(result) { const entries = leaderboards()[result.mode] || []; const candidate = { score: result.score, maxTile: result.maxTile, at: result.at }; const ranked = [...entries, candidate].sort(compareResults); const rank = ranked.indexOf(candidate) + 1; return rank <= 5 ? rank : null; }
   function setModeControls(disabled) { document.querySelectorAll('.mode-button').forEach((button) => { button.disabled = disabled; }); durationInput.disabled = disabled; durationMinus.disabled = disabled; durationPlus.disabled = disabled; if (wasdToggle) wasdToggle.disabled = disabled; }
   function setLeaderboardControls(disabled) { [backupLeaderboardButton, restoreLeaderboardButton, clearLeaderboardButton].forEach((button) => { if (button) button.disabled = disabled; }); }
   function readyGuideText() { const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0; if (touchDevice) return mode === 'solo' ? '\u6ed1\u52a8\u68cb\u76d8\u63a7\u5236\u79fb\u52a8' : '\u53cc\u4eba\u6a21\u5f0f\u8bf7\u4f7f\u7528\u5206\u5de5\u6309\u952e'; if (mode === 'solo') return wasdEnabled ? '\u65b9\u5411\u952e / WASD \u63a7\u5236\u79fb\u52a8' : '\u65b9\u5411\u952e\u63a7\u5236\u79fb\u52a8'; return wasdEnabled ? '\u7532 W/S \u00b7 \u4e59 A/D' : '\u7532 \u2191\u2193 \u00b7 \u4e59 \u2190\u2192'; }
@@ -358,16 +362,16 @@
   }
   function setLeaderboardStatus(message) { if (leaderboardStatus) leaderboardStatus.textContent = message; }
   function renderLeaderboard() {
-    const data = (leaderboards()[mode] || []).slice(0, 5); const highest = Math.max(1, ...data.map((entry) => Number(entry.score) || 0));
+    const data = (leaderboards()[mode] || []).slice(0, 5); const highest = Math.max(1, ...data.map((entry) => Number(entry.maxTile) || 0));
     leaderboardEl.replaceChildren(); leaderboardEmpty.hidden = data.length > 0;
     data.forEach((entry, index) => {
       const item = document.createElement('li'); item.className = `rank-${index + 1}${index === 0 ? ' rank-top' : ''}`;
-      item.style.setProperty('--score-ratio', `${Math.max(index === 0 ? 14 : 7, ((Number(entry.score) || 0) / highest) * 100)}%`);
+      item.style.setProperty('--score-ratio', `${((Number(entry.maxTile) || 0) / highest) * 100}%`);
       const main = document.createElement('div'); main.className = 'leader-main';
       const name = document.createElement('span'); name.className = 'leader-name'; name.textContent = entry.name;
-      const meta = document.createElement('span'); meta.className = 'leader-meta'; meta.textContent = '最高 ' + (entry.maxTile || '—') + '  ·  ' + (entry.duration || '—') + ' 秒'; const bar = document.createElement('span'); bar.className = 'leader-bar'; const fill = document.createElement('i'); bar.appendChild(fill); main.append(name, meta, bar);
-      const value = document.createElement('span'); value.className = 'leader-score'; value.textContent = String(entry.score);
-      const max = document.createElement('small'); max.textContent = entry.maxTile || '—'; value.appendChild(max);
+      const meta = document.createElement('span'); meta.className = 'leader-meta'; meta.textContent = '总分 ' + entry.score + '  ·  ' + (entry.duration || '—') + ' 秒'; const bar = document.createElement('span'); bar.className = 'leader-bar'; const fill = document.createElement('i'); bar.appendChild(fill); main.append(name, meta, bar);
+      const value = document.createElement('span'); value.className = 'leader-score'; value.textContent = String(entry.maxTile || '—');
+      const label = document.createElement('small'); label.textContent = '最高块'; value.appendChild(label);
       item.append(main, value); leaderboardEl.appendChild(item);
     });
     restoreLeaderboardButton.hidden = !loadJson(BACKUP_KEY, null);
@@ -420,7 +424,7 @@
       submitHint.textContent = result.accepted ? '\u5df2\u4fdd\u5b58\u5230\u73b0\u573a\u6392\u884c\u699c' : '\u6210\u7ee9\u5df2\u8bb0\u5f55';
     } catch (_) {
       const all = localLeaderboards(); const candidate = { ...entry, at: lastResult.at };
-      const ranked = [...(all[lastResult.mode] || []), candidate].sort((a, b) => b.score - a.score || b.maxTile - a.maxTile || a.at - b.at);
+      const ranked = [...(all[lastResult.mode] || []), candidate].sort(compareResults);
       all[lastResult.mode] = ranked.slice(0, 10000); saveJson(STORAGE_KEY, all); remoteLeaderboards = all;
       resultRank.textContent = '\u672c\u673a\u8bb0\u5f55 \u00b7 \u5f53\u524d\u7b2c ' + (ranked.indexOf(candidate) + 1) + '\u540d\uff08\u5171' + ranked.length + '\u5c40\uff09';
       submitHint.textContent = '\u670d\u52a1\u5668\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u5df2\u4fdd\u5b58\u5230\u672c\u673a';

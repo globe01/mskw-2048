@@ -7,6 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const url = require('url');
 const { createAuth } = require('./auth');
+const { compare } = require('./ranking');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 3000);
@@ -33,7 +34,6 @@ function safeData(value) {
 function isValidEntry(entry) {
   return entry && typeof entry.name === 'string' && Number.isFinite(Number(entry.score)) && Number.isFinite(Number(entry.maxTile)) && Number.isFinite(Number(entry.duration)) && Number.isFinite(Number(entry.at));
 }
-function compare(a, b) { return Number(b.score) - Number(a.score) || Number(b.maxTile) - Number(a.maxTile) || Number(a.at) - Number(b.at); }
 function publicData(data) { return { solo: data.solo.slice(0, PUBLIC_ENTRIES), duo: data.duo.slice(0, PUBLIC_ENTRIES) }; }
 function readData() {
   try { return safeData(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))); } catch (_) { return emptyData(); }
@@ -101,7 +101,7 @@ function validScore(body) {
 }
 function serveStatic(req, res, pathname) {
   const requested = pathname === '/' ? '/index.html' : pathname === '/admin' ? '/admin.html' : pathname;
-  const publicFiles = new Set(['/index.html', '/styles.css', '/app.js', '/admin.html', '/admin.css', '/admin.js', '/favicon.svg', '/upstream-tile.js', '/upstream-grid.js', '/manifest.webmanifest', '/sw.js']);
+  const publicFiles = new Set(['/index.html', '/styles.css', '/app.js', '/ranking.js', '/admin.html', '/admin.css', '/admin.js', '/favicon.svg', '/upstream-tile.js', '/upstream-grid.js', '/manifest.webmanifest', '/sw.js']);
   if (!publicFiles.has(requested)) return json(res, 404, { error: 'not_found' });
   const file = path.resolve(ROOT, `.${requested}`);
   const rootPrefix = `${path.resolve(ROOT)}${path.sep}`;

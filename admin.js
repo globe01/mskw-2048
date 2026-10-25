@@ -128,7 +128,7 @@
     const body = $('#score-rows'); body.replaceChildren();
     filtered.slice(page * pageSize, (page + 1) * pageSize).forEach(entry => {
       const row = document.createElement('tr'); row.dataset.top = String(entry.rank <= 3);
-      [entry.rank, entry.name, number(entry.score), number(entry.maxTile), entry.duration + ' 秒', formatTime(entry.at)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+      [entry.rank, entry.name, number(entry.maxTile), number(entry.score), entry.duration + ' 秒', formatTime(entry.at)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
       body.append(row);
     });
     $('#record-count').textContent = number(entries().length);
@@ -154,8 +154,9 @@
     if (!state) return;
     const data = entries(), total = data.reduce((sum, entry) => sum + Number(entry.score), 0);
     $('#round-count').textContent = number(data.length);
-    $('#best-score').textContent = data.length ? number(data[0].score) : '—';
-    $('#best-player').textContent = data.length ? data[0].name : '等待首位挑战者';
+    const highestScore = data.length ? data.reduce((best, entry) => Number(entry.score) > Number(best.score) ? entry : best) : null;
+    $('#best-score').textContent = highestScore ? number(highestScore.score) : '—';
+    $('#best-player').textContent = highestScore ? highestScore.name : '等待首位挑战者';
     $('#average-score').textContent = data.length ? number(Math.round(total / data.length)) : '—';
     $('#best-tile').textContent = data.length ? number(Math.max(...data.map(entry => Number(entry.maxTile)))) : '—';
     $('#mode-caption').textContent = labels[mode];
@@ -216,7 +217,7 @@
   }
   $('#export-button').addEventListener('click', () => {
     const cell = value => '"' + String(value).replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g, '""') + '"';
-    const rows = [['名次', '昵称', '得分', '最高块', '时长（秒）', '提交时间'], ...entries().map((entry, index) => [index + 1, entry.name, entry.score, entry.maxTile, entry.duration, formatTime(entry.at)])];
+    const rows = [['名次', '昵称', '最高块', '总分', '时长（秒）', '提交时间'], ...entries().map((entry, index) => [index + 1, entry.name, entry.maxTile, entry.score, entry.duration, formatTime(entry.at)])];
     download('\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n'), '码上开玩-' + labels[mode] + '.csv', 'text/csv;charset=utf-8');
   });
   async function mutate(action) {

@@ -88,6 +88,22 @@ test('账号会话、CSRF、限流与完整成绩备份恢复', async t => {
     assert.ok(cleared.backups.some(file => file.name.includes('before-clear')));
     assert.equal((await post('/api/admin/restore', { data: backup.data })).status, 200);
   });
+  await t.test('新旧成绩统一按最高块、总分、提交时间排序并返回完整名次', async () => {
+    const entry = (name, maxTile, score, at) => ({ name, maxTile, score, at, duration: 30 });
+    const records = [entry('高总分小块', 64, 5000, 1), entry('同分较晚', 128, 500, 30), entry('同分较早', 128, 500, 20), entry('大块低分', 256, 100, 40), entry('同块较低分', 128, 400, 10), entry('小块', 32, 10000, 2)];
+    assert.equal((await post('/api/admin/restore', { data: { solo: records, duo: records } })).status, 200);
+    const expected = ['大块低分', '同分较早', '同分较晚', '同块较低分', '高总分小块', '小块'];
+    const summary = await (await call('/api/admin/summary', { headers: { Cookie: cookie } })).json();
+    assert.deepEqual(summary.data.solo.map(value => value.name), expected);
+    assert.deepEqual(summary.data.duo.map(value => value.name), expected);
+    const publicData = await (await call('/api/leaderboard')).json();
+    assert.deepEqual(publicData.solo.map(value => value.name), expected.slice(0, 5));
+    const result = await (await post('/api/scores', { mode: 'solo', name: '新挑战者', maxTile: 512, score: 4, duration: 30 })).json();
+    assert.equal(result.rank, 1); assert.equal(result.total, 7);
+    assert.equal(result.entries[0].name, '新挑战者');
+    const backup = await (await post('/api/admin/backup', {})).json();
+    assert.equal(backup.data.solo[0].name, '新挑战者');
+  });
   await t.test('退出使旧 cookie 失效；多次登录失败后限流', async () => {
     assert.equal((await post('/api/admin/logout', {})).status, 200);
     assert.equal((await call('/api/admin/summary', { headers: { Cookie: cookie } })).status, 401);

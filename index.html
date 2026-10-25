@@ -65,7 +65,7 @@
               <button id="clear-leaderboard" class="icon-button danger" type="button" title="备份后清空排行榜" aria-label="备份后清空排行榜"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14m-9 4v6m4-6v6M9 7V5h6v2m-8 0 1 13h8l1-13"/></svg><span>清空</span></button>
             </div>
           </div>
-          <ol id="leaderboard"></ol>
+          <p class="ranking-rule">先比最高块，再比总分</p><ol id="leaderboard"></ol>
           <p id="leaderboard-empty">还没有成绩</p>
           <p id="leaderboard-status" class="leaderboard-status" aria-live="polite"></p>
         </section>
@@ -75,10 +75,11 @@
       <footer class="event-credit">计算机学院 <span aria-hidden="true">×</span> 密码与网络空间安全学院</footer>
   </main>
 
-  <dialog id="result-dialog" class="result-dialog"><form method="dialog" id="result-form" class="result-card"><button type="button" id="close-dialog" class="close-button" aria-label="关闭（成绩可稍后继续保存）"><svg viewBox="0 0 24 24" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button><span class="result-label">本局完成</span><h2 id="result-title">时间到</h2><div class="result-numbers"><div><span>得分</span><strong id="result-score">0</strong></div><div><span>最高块</span><strong id="result-max">—</strong></div></div><p id="result-rank" class="result-rank" aria-live="polite"></p><label for="player-name">昵称</label><input id="player-name" maxlength="12" autocomplete="off" placeholder="现场昵称" /><button id="submit-score" class="primary-button" value="submit">保存成绩</button><p id="submit-hint">可稍后保存，关闭弹窗也不会丢失</p></form></dialog>
+  <dialog id="result-dialog" class="result-dialog"><form method="dialog" id="result-form" class="result-card"><button type="button" id="close-dialog" class="close-button" aria-label="关闭（成绩可稍后继续保存）"><svg viewBox="0 0 24 24" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button><span class="result-label">本局完成</span><h2 id="result-title">时间到</h2><div class="result-numbers"><div><span>最高块</span><strong id="result-max">—</strong></div><div><span>总分</span><strong id="result-score">0</strong></div></div><p id="result-rank" class="result-rank" aria-live="polite"></p><label for="player-name">昵称</label><input id="player-name" maxlength="12" autocomplete="off" placeholder="现场昵称" /><button id="submit-score" class="primary-button" value="submit">保存成绩</button><p id="submit-hint">可稍后保存，关闭弹窗也不会丢失</p></form></dialog>
   <!-- The board model is retained from the MIT-licensed upstream 2048 project. -->
   <script src="upstream-tile.js"></script>
   <script src="upstream-grid.js"></script>
+  <script src="ranking.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

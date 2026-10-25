@@ -1436,7 +1436,7 @@ body{color:var(--ink);background:#f6f8fb}
 .glass-panel{border-color:#e1e7f0;background:rgba(255,255,255,.9);box-shadow:0 14px 40px rgba(30,54,96,.075)}
 .brand-mark{background:#193d79;box-shadow:0 8px 18px rgba(25,61,121,.18)}
 .hero h1 i{color:#536fae}
-.hero-line{height:1px;background:linear-gradient(90deg,#295b9e,#a9b8d4 55%,transparent 90%);opacity:.7}
+.hero-line{height:1px;background:linear-gradient(90deg,#9aaecd 0%,#6888b7 28%,#587aa9 50%,#6888b7 72%,#9aaecd 100%);opacity:.8}
 .mode-switch{background:#eef2f7;border-color:#e1e7ef}
 .mode-switch::before{background:#fff;box-shadow:0 3px 9px rgba(29,52,91,.12)}
 .mode-button.active{color:#193665}
@@ -1474,6 +1474,7 @@ body{color:var(--ink);background:#f6f8fb}
 .leader-bar i,.leaderboard li.rank-1 .leader-bar i{background:#5577ad}
 .leaderboard li.rank-2 .leader-bar i,.leaderboard li.rank-3 .leader-bar i,.leaderboard li.rank-4 .leader-bar i,.leaderboard li.rank-5 .leader-bar i{background:#7d92b7}
 .leaderboard-empty{padding:18px 0 7px}
+.leaderboard .ranking-rule{margin:0 0 12px;color:#6f809c;font-size:11px;text-align:left;letter-spacing:.02em}
 .mode-card{padding:20px 21px}
 .mode-chip{width:30px;height:26px;border:1px solid #cbd7e8;border-radius:6px;color:#315d9d;background:#f2f6fb!important;font-size:10px}
 .mode-chip.violet{border-color:#d9d0e9;color:#735aa8;background:#f7f4fb!important}
