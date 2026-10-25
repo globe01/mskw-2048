@@ -2,10 +2,6 @@
   'use strict';
 
   const SIZE = 4;
-  // Keep the travel animation close to the original 2048 feel. Inputs that
-  // arrive during the animation are queued instead of being overwritten.
-  const MOVE_MS = 100;
-  const INPUT_QUEUE_LIMIT = 8;
   const STORAGE_KEY = 'ma-shang-kai-wan-2048-leaderboards-v1';
   const BACKUP_KEY = 'ma-shang-kai-wan-2048-leaderboards-backup-v1';
   const SETTINGS_KEY = 'ma-shang-kai-wan-2048-settings-v1';
@@ -49,7 +45,7 @@
   const overlayMessage = $('#overlay-message');
 
   let mode = 'solo'; let duration = defaults.solo; let tiles = []; let nextId = 1; let score = 0; let maxTile = 0;
-  let running = false; let modeSwitching = false; let modeSwitchTimer = null; let animating = false; let directionQueue = []; let endAt = 0; let timerId = null; let lastResult = null; let submitted = false; let gameVersion = 0;
+  let running = false; let modeSwitching = false; let modeSwitchTimer = null; let endAt = 0; let timerId = null; let lastResult = null; let submitted = false; let gameVersion = 0;
   let touchStartX = 0; let touchStartY = 0; let touchPointerId = null; let gestureStartedAt = 0;
   let remoteLeaderboards = null; let adminTokenValue = '';
   const domTiles = new Map();
@@ -81,22 +77,50 @@
     const cell = (tileLayer.clientWidth - (gap * 3)) / SIZE;
     return { left: tile.c * (cell + gap), top: tile.r * (cell + gap), cell };
   }
+  function positionClass(position) {
+    // Activity state uses { c, r }; the upstream Tile uses { x, y }.
+    const x = position.c ?? position.x;
+    const y = position.r ?? position.y;
+    return `tile-position-${x + 1}-${y + 1}`;
+  }
   function positionTile(element, tile) {
-    element.style.setProperty('--col', tile.c); element.style.setProperty('--row', tile.r);
     const geometry = tileGeometry(tile);
-    // The upstream actuator moves the wrapper with a compositor transform.
-    // Keep the wrapper anchored at the tile layer origin so CSS transition
-    // handles every move without layout work on left/top.
     element.style.left = '0px'; element.style.top = '0px';
     element.style.width = `${geometry.cell}px`; element.style.height = `${geometry.cell}px`;
   }
   function tileClass(value) { return value <= 2048 ? `tile tile-${value}` : 'tile tile-super'; }
   function createTile(tile, animate = false) {
-    const element = document.createElement('div'); element.className = `${tileClass(tile.value)}${animate ? ' tile-new' : ''}`; element.dataset.id = tile.id; element.setAttribute('role', 'gridcell'); element.setAttribute('aria-label', String(tile.value));
-    const inner = document.createElement('div'); inner.className = 'tile-inner'; inner.textContent = tile.value; element.appendChild(inner);
-    positionTile(element, tile); tileLayer.appendChild(element); domTiles.set(tile.id, element); return element;
+    const element = document.createElement('div');
+    const position = tile.previousPosition || tile;
+    const classes = [tileClass(tile.value), positionClass(position)];
+    if (tile.previousPosition) {
+      // Match the upstream HTMLActuator: render at the saved position first,
+      // then replace the position class on the next frame.
+      window.requestAnimationFrame(() => {
+        classes[1] = positionClass(tile);
+        element.className = classes.join(' ');
+      });
+    } else if (tile.mergedFrom) {
+      classes.push('tile-merged');
+      // Add the source tiles before the merged result so the result remains
+      // the top layer, exactly as in the upstream actuator.
+      tile.mergedFrom.forEach((source) => createTile(source, false));
+    } else if (animate) {
+      classes.push('tile-new');
+    }
+    element.className = classes.join(' ');
+    element.dataset.id = tile.id;
+    element.setAttribute('role', 'gridcell');
+    element.setAttribute('aria-label', String(tile.value));
+    const inner = document.createElement('div');
+    inner.className = 'tile-inner';
+    inner.textContent = tile.value;
+    element.appendChild(inner);
+    positionTile(element, tile);
+    domTiles.set(tile.id, element);
+    tileLayer.appendChild(element);
+    return element;
   }
-  function updateTileElement(element, tile, options = {}) { element.className = tileClass(tile.value); element.dataset.id = tile.id; element.setAttribute('aria-label', String(tile.value)); const inner = element.querySelector('.tile-inner'); inner.className = 'tile-inner'; inner.textContent = tile.value; if (options.position !== false) positionTile(element, tile); }
   function renderStatic() { tileLayer.replaceChildren(); domTiles.clear(); tiles.forEach((tile) => createTile(tile)); scoreEl.textContent = score; maxTileEl.textContent = maxTile || '—'; }
   function showScorePop(amount, tile) {
     if (!amount || !tile) return;
@@ -199,21 +223,12 @@
     return { next, moves, merged, gained, changed };
   }
   function animateMove(result) {
-    animating = true;
+    // Upstream processes key events synchronously; the browser animates the
+    // freshly rendered actuator layer independently of game state updates.
     const version = gameVersion;
-    const mergeByPrimary = new Map(result.merged.map((merge) => [merge.primary.id, merge]));
-
-    // Match the upstream actuator: wrappers move with transform, while the
-    // inner tile owns the original appear/pop keyframes.
-    result.merged.forEach(({ primary }) => {
-      const primaryEl = domTiles.get(primary.id);
-      if (!primaryEl) return;
-      updateTileElement(primaryEl, primary, { position: false });
-      primaryEl.classList.add('tile-merged');
-      primaryEl.style.zIndex = '3';
-    });
-
     const nextTiles = result.next.map((tile) => ({ ...tile }));
+    const mergeByPrimary = new Map(result.merged.map((merge) => [merge.primary.id, merge]));
+    const consumedIds = new Set(result.merged.map((merge) => merge.consumed));
     const occupied = new Set(nextTiles.map((tile) => tile.r + ',' + tile.c));
     const emptyCells = [];
     for (let r = 0; r < SIZE; r += 1) {
@@ -221,86 +236,57 @@
         if (!occupied.has(r + ',' + c)) emptyCells.push([r, c]);
       }
     }
+
     let spawned = null;
     if (emptyCells.length) {
       const cell = emptyCells[randomInt(emptyCells.length)];
       spawned = { id: nextId++, value: randomInt(10) === 0 ? 4 : 2, r: cell[0], c: cell[1], spawned: true };
-      createTile(spawned, true);
     }
 
-    requestAnimationFrame(() => {
-      if (version !== gameVersion) return;
-      result.moves.forEach((move) => {
-        const element = domTiles.get(move.id);
-        if (element) positionTile(element, move);
-      });
+    score += result.gained;
+    nextTiles.forEach((tile) => { if (tile.value > maxTile) maxTile = tile.value; });
+    if (spawned && spawned.value > maxTile) maxTile = spawned.value;
+    scoreEl.textContent = score;
+    maxTileEl.textContent = maxTile || '\u2014';
+    if (result.gained) showScorePop(result.gained, result.merged[0] && result.merged[0].primary);
+
+    // This follows the upstream HTMLActuator: clear the tile layer, render
+    // source tiles at their saved positions, then let the next animation frame
+    // switch them to their destination position classes.
+    tileLayer.replaceChildren();
+    domTiles.clear();
+    nextTiles.forEach((tile) => {
+      const merge = mergeByPrimary.get(tile.id);
+      if (merge) {
+        const primarySource = tiles.find((source) => source.id === tile.id);
+        const consumedSource = tiles.find((source) => source.id === merge.consumed);
+        const mergedTile = {
+          id: 'merge-' + tile.id + '-' + version,
+          value: tile.value,
+          r: tile.r,
+          c: tile.c,
+          mergedFrom: [
+            { id: primarySource.id, value: primarySource.value, r: tile.r, c: tile.c, previousPosition: { x: primarySource.c, y: primarySource.r } },
+            { id: consumedSource.id, value: consumedSource.value, r: tile.r, c: tile.c, previousPosition: { x: consumedSource.c, y: consumedSource.r } }
+          ]
+        };
+        createTile(mergedTile, false);
+        return;
+      }
+      if (consumedIds.has(tile.id)) return;
+      const previous = tiles.find((source) => source.id === tile.id);
+      createTile({ ...tile, previousPosition: { x: previous.c, y: previous.r } }, false);
     });
-
-    window.setTimeout(() => {
-      if (version !== gameVersion) return;
-      const finalTiles = spawned ? nextTiles.concat(spawned) : nextTiles;
-      const finalIds = new Set(finalTiles.map((tile) => tile.id));
-
-      // Keep source wrappers below the result until the upstream pop finishes.
-      tiles.forEach((tile) => {
-        if (!finalIds.has(tile.id) && !result.merged.some((merge) => merge.consumed === tile.id)) {
-          const old = domTiles.get(tile.id);
-          if (old) old.remove();
-          domTiles.delete(tile.id);
-        }
-      });
-      tiles = finalTiles;
-      tiles.forEach((tile) => {
-        const element = domTiles.get(tile.id);
-        if (!element) return;
-        if (!mergeByPrimary.has(tile.id)) updateTileElement(element, tile);
-      });
-
-      score += result.gained;
-      tiles.forEach((tile) => { if (tile.value > maxTile) maxTile = tile.value; });
-      scoreEl.textContent = score;
-      maxTileEl.textContent = maxTile || '\u2014';
-      if (result.gained) showScorePop(result.gained, result.merged[0] && result.merged[0].primary);
-
-      window.setTimeout(() => {
-        if (version !== gameVersion) return;
-        result.merged.forEach(({ consumed }) => {
-          const consumedEl = domTiles.get(consumed);
-          if (consumedEl) consumedEl.remove();
-          domTiles.delete(consumed);
-        });
-        result.merged.forEach(({ primary }) => {
-          const primaryEl = domTiles.get(primary.id);
-          if (primaryEl) {
-            primaryEl.classList.remove('tile-merged');
-            primaryEl.style.zIndex = '';
-          }
-        });
-        const spawnedEl = spawned && domTiles.get(spawned.id);
-        if (spawnedEl) spawnedEl.classList.remove('tile-new');
-        animating = false;
-        if (running && performance.now() >= endAt) finishGame('time');
-        else if (!canMove()) finishGame('no-moves');
-        drainDirectionQueue();
-      }, 205);
-    }, MOVE_MS + 8);
-  }
-  function drainDirectionQueue() {
-    if (!running || animating) return;
-    if (performance.now() >= endAt) { directionQueue = []; finishGame('time'); return; }
-    while (directionQueue.length && running && !animating) {
-      const direction = directionQueue.shift();
-      const result = calculateMove(direction);
-      if (!result.changed) continue;
-      animateMove(result);
-    }
+    if (spawned) createTile(spawned, true);
+    tiles = spawned ? nextTiles.concat(spawned) : nextTiles;
+    if (running && performance.now() >= endAt) finishGame('time');
+    else if (!canMove()) finishGame('no-moves');
   }
   function move(direction) {
     if (!running) return;
-    if (performance.now() >= endAt) { directionQueue = []; if (!animating) finishGame('time'); return; }
-    if (animating) { if (directionQueue.length < INPUT_QUEUE_LIMIT) directionQueue.push(direction); return; }
+    if (performance.now() >= endAt) { finishGame('time'); return; }
     const result = calculateMove(direction);
-    if (!result.changed) { drainDirectionQueue(); return; }
+    if (!result.changed) return;
     animateMove(result);
   }
   function normalizeDuration() { const parsed = Number.parseInt(durationInput.value, 10); const value = Math.max(5, Math.min(180, Number.isFinite(parsed) ? parsed : defaults[mode])); durationInput.value = value; duration = value; const settings = loadJson(SETTINGS_KEY, {}); settings[mode] = value; saveJson(SETTINGS_KEY, settings); updateTimerDisplay(duration * 1000); }
@@ -321,8 +307,7 @@
     modeSwitching = false; boardWrap.classList.remove('turn-out', 'turn-in');
     gameVersion += 1;
     running = false;
-    animating = false;
-    directionQueue = [];
+
     normalizeDuration();
     if (timerId) cancelAnimationFrame(timerId);
     timerId = null;
@@ -345,9 +330,9 @@
   }
   function updateModeUi() { modeSwitch.classList.toggle('is-duo', mode === 'duo'); boardEl.classList.toggle('mode-solo', mode === 'solo'); boardEl.classList.toggle('mode-duo', mode === 'duo'); document.querySelectorAll('.mode-button').forEach((button) => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); }); const settings = loadJson(SETTINGS_KEY, {}); const savedDuration = Number(settings[mode]); duration = Number.isFinite(savedDuration) && savedDuration >= 5 && savedDuration <= 180 && savedDuration !== legacyDefaults[mode] ? savedDuration : defaults[mode]; settings[mode] = duration; saveJson(SETTINGS_KEY, settings); durationInput.value = duration; leaderboardTitle.textContent = mode === 'solo' ? '单人' : '双人'; guideText.textContent = readyGuideText(); renderLeaderboard(); updateTimerDisplay(duration * 1000); }
   function updateTimerDisplay(ms) { const seconds = Math.max(0, ms / 1000); timerEl.textContent = seconds.toFixed(1); timerBox.classList.toggle('urgent', seconds <= 5 && seconds > 0); }
-  function tick() { if (!running) return; const remaining = endAt - performance.now(); updateTimerDisplay(remaining); if (remaining <= 0) { if (animating) { timerId = requestAnimationFrame(tick); return; } finishGame('time'); return; } timerId = requestAnimationFrame(tick); }
-  function startGame() { if (running) return; if (lastResult && !submitted && !window.confirm('\u4e0a\u4e00\u5c40\u6210\u7ee9\u5c1a\u672a\u4fdd\u5b58\uff0c\u786e\u5b9a\u653e\u5f03\u8fd9\u6761\u6210\u7ee9\u5e76\u5f00\u59cb\u65b0\u5c40\u5417\uff1f')) return; if (lastResult && !submitted) { lastResult = null; pendingResultButton.hidden = true; } if (modeSwitchTimer) { window.clearTimeout(modeSwitchTimer); modeSwitchTimer = null; } modeSwitching = false; gameVersion += 1; normalizeDuration(); initBoard(); running = true; animating = false; directionQueue = []; submitted = false; endAt = performance.now() + duration * 1000; overlay.classList.remove('visible'); startButton.disabled = true; restartButton.disabled = false; restartButton.textContent = '\u7ed3\u675f\u672c\u5c40'; restartButton.title = '\u7ed3\u675f\u672c\u5c40\u524d\u9700\u8981\u786e\u8ba4'; setModeControls(true); setLeaderboardControls(true); guideText.textContent = playingGuideText(); document.body.classList.add('is-playing'); timerId = requestAnimationFrame(tick); boardEl.focus(); }
-  function finishGame(reason) { if (!running) return; gameVersion += 1; running = false; directionQueue = []; cancelAnimationFrame(timerId); timerId = null; updateTimerDisplay(0); startButton.disabled = false; restartButton.disabled = false; restartButton.textContent = '\u91cd\u6765'; restartButton.title = ''; setModeControls(false); setLeaderboardControls(false); guideText.textContent = readyGuideText() + ' \u00b7 \u70b9\u51fb\u91cd\u6765\u91cd\u65b0\u51c6\u5907'; document.body.classList.remove('is-playing'); lastResult = { mode, score, maxTile, duration, reason, at: Date.now() }; pendingResultButton.hidden = true; resultScore.textContent = score; resultMax.textContent = maxTile || '\u2014'; const rank = resultRankFor(lastResult); resultRank.textContent = rank ? '\u5f53\u524d\u6210\u7ee9\u53ef\u8fdb\u5165' + (mode === 'solo' ? '\u5355\u4eba' : '\u53cc\u4eba') + '\u699c\u7b2c ' + rank + ' \u540d\u3001\u4fdd\u5b58\u540e\u66f4\u65b0\u699c\u5355\u3002' : '\u5f53\u524d\u6210\u7ee9\u672a\u8fdb\u5165\u524d\u4e94\u3001\u65e0\u6cd5\u52a0\u5165\u6392\u884c\u699c\u3002'; resultTitle.textContent = reason === 'no-moves' ? '\u68cb\u76d8\u5df2\u6ee1' : reason === 'stopped' ? '\u672c\u5c40\u5df2\u7ed3\u675f' : '\u65f6\u95f4\u5230'; submitted = false; playerName.value = ''; submitHint.textContent = '\u63d0\u4ea4\u540e\u540c\u6b65\u73b0\u573a\u6392\u884c\u699c\uff0c\u8bef\u5173\u95ed\u4e5f\u53ef\u7ee7\u7eed\u4fdd\u5b58'; if (typeof resultDialog.showModal === 'function') resultDialog.showModal(); else resultDialog.setAttribute('open', ''); }
+  function tick() { if (!running) return; const remaining = endAt - performance.now(); updateTimerDisplay(remaining); if (remaining <= 0) { finishGame('time'); return; } timerId = requestAnimationFrame(tick); }
+  function startGame() { if (running) return; if (lastResult && !submitted && !window.confirm('\u4e0a\u4e00\u5c40\u6210\u7ee9\u5c1a\u672a\u4fdd\u5b58\uff0c\u786e\u5b9a\u653e\u5f03\u8fd9\u6761\u6210\u7ee9\u5e76\u5f00\u59cb\u65b0\u5c40\u5417\uff1f')) return; if (lastResult && !submitted) { lastResult = null; pendingResultButton.hidden = true; } if (modeSwitchTimer) { window.clearTimeout(modeSwitchTimer); modeSwitchTimer = null; } modeSwitching = false; gameVersion += 1; normalizeDuration(); initBoard(); running = true; submitted = false; endAt = performance.now() + duration * 1000; overlay.classList.remove('visible'); startButton.disabled = true; restartButton.disabled = false; restartButton.textContent = '\u7ed3\u675f\u672c\u5c40'; restartButton.title = '\u7ed3\u675f\u672c\u5c40\u524d\u9700\u8981\u786e\u8ba4'; setModeControls(true); setLeaderboardControls(true); guideText.textContent = playingGuideText(); document.body.classList.add('is-playing'); timerId = requestAnimationFrame(tick); boardEl.focus(); }
+  function finishGame(reason) { if (!running) return; gameVersion += 1; running = false; cancelAnimationFrame(timerId); timerId = null; updateTimerDisplay(0); startButton.disabled = false; restartButton.disabled = false; restartButton.textContent = '\u91cd\u6765'; restartButton.title = ''; setModeControls(false); setLeaderboardControls(false); guideText.textContent = readyGuideText() + ' \u00b7 \u70b9\u51fb\u91cd\u6765\u91cd\u65b0\u51c6\u5907'; document.body.classList.remove('is-playing'); lastResult = { mode, score, maxTile, duration, reason, at: Date.now() }; pendingResultButton.hidden = true; resultScore.textContent = score; resultMax.textContent = maxTile || '\u2014'; const rank = resultRankFor(lastResult); resultRank.textContent = rank ? '\u5f53\u524d\u6210\u7ee9\u53ef\u8fdb\u5165' + (mode === 'solo' ? '\u5355\u4eba' : '\u53cc\u4eba') + '\u699c\u7b2c ' + rank + ' \u540d\u3001\u4fdd\u5b58\u540e\u66f4\u65b0\u699c\u5355\u3002' : '\u5f53\u524d\u6210\u7ee9\u672a\u8fdb\u5165\u524d\u4e94\u3001\u65e0\u6cd5\u52a0\u5165\u6392\u884c\u699c\u3002'; resultTitle.textContent = reason === 'no-moves' ? '\u68cb\u76d8\u5df2\u6ee1' : reason === 'stopped' ? '\u672c\u5c40\u5df2\u7ed3\u675f' : '\u65f6\u95f4\u5230'; submitted = false; playerName.value = ''; submitHint.textContent = '\u63d0\u4ea4\u540e\u540c\u6b65\u73b0\u573a\u6392\u884c\u699c\uff0c\u8bef\u5173\u95ed\u4e5f\u53ef\u7ee7\u7eed\u4fdd\u5b58'; if (typeof resultDialog.showModal === 'function') resultDialog.showModal(); else resultDialog.setAttribute('open', ''); }
   function backupSnapshot() { return { savedAt: new Date().toISOString(), data: leaderboards() }; }
   function saveLeaderboardBackup() { const snapshot = backupSnapshot(); saveJson(BACKUP_KEY, snapshot); return snapshot; }
   function downloadLeaderboardBackup(snapshot) {

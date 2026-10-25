@@ -862,3 +862,22 @@ body{
   50% { transform: scale(1.2); }
   100% { transform: scale(1); }
 }
+
+/* Upstream HTMLActuator position classes. Percentages are relative to the
+   wrapper itself, so every tile keeps the exact size of its grid cell. */
+.tile.tile-position-1-1{transform:translate3d(0,0,0)!important}
+.tile.tile-position-2-1{transform:translate3d(calc(100% + var(--gap)),0,0)!important}
+.tile.tile-position-3-1{transform:translate3d(calc(200% + var(--gap) + var(--gap)),0,0)!important}
+.tile.tile-position-4-1{transform:translate3d(calc(300% + var(--gap) + var(--gap) + var(--gap)),0,0)!important}
+.tile.tile-position-1-2{transform:translate3d(0,calc(100% + var(--gap)),0)!important}
+.tile.tile-position-2-2{transform:translate3d(calc(100% + var(--gap)),calc(100% + var(--gap)),0)!important}
+.tile.tile-position-3-2{transform:translate3d(calc(200% + var(--gap) + var(--gap)),calc(100% + var(--gap)),0)!important}
+.tile.tile-position-4-2{transform:translate3d(calc(300% + var(--gap) + var(--gap) + var(--gap)),calc(100% + var(--gap)),0)!important}
+.tile.tile-position-1-3{transform:translate3d(0,calc(200% + var(--gap) + var(--gap)),0)!important}
+.tile.tile-position-2-3{transform:translate3d(calc(100% + var(--gap)),calc(200% + var(--gap) + var(--gap)),0)!important}
+.tile.tile-position-3-3{transform:translate3d(calc(200% + var(--gap) + var(--gap)),calc(200% + var(--gap) + var(--gap)),0)!important}
+.tile.tile-position-4-3{transform:translate3d(calc(300% + var(--gap) + var(--gap) + var(--gap)),calc(200% + var(--gap) + var(--gap)),0)!important}
+.tile.tile-position-1-4{transform:translate3d(0,calc(300% + var(--gap) + var(--gap) + var(--gap)),0)!important}
+.tile.tile-position-2-4{transform:translate3d(calc(100% + var(--gap)),calc(300% + var(--gap) + var(--gap) + var(--gap)),0)!important}
+.tile.tile-position-3-4{transform:translate3d(calc(200% + var(--gap) + var(--gap)),calc(300% + var(--gap) + var(--gap) + var(--gap)),0)!important}
+.tile.tile-position-4-4{transform:translate3d(calc(300% + var(--gap) + var(--gap) + var(--gap)),calc(300% + var(--gap) + var(--gap) + var(--gap)),0)!important}
