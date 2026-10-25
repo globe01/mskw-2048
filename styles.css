@@ -1514,3 +1514,30 @@ body{color:var(--ink);background:#f6f8fb}
 .flow-list small{display:block;margin-top:3px;color:#8795aa;font-size:10px;line-height:1.35}
 .session-note{margin:auto 0 0;padding-top:16px;color:#8795aa;font-size:11px;line-height:1.45}
 @media(max-width:800px){.session-note{margin-top:14px}}
+
+/* Controlled color accents keep the scoreboard lively without turning it into a palette. */
+.leaderboard li.rank-2{background:#f3f7ff!important;border-left:3px solid #8ba9d8!important}
+.leaderboard li.rank-3{background:#faf5ff!important;border-left:3px solid #b08acb!important}
+.leaderboard li.rank-4{background:#fff9f1!important;border-left:3px solid #d0a46f!important}
+.leaderboard li.rank-5{background:#f2faf7!important;border-left:3px solid #87b9a8!important}
+.leaderboard li.rank-2::before{color:#557fb9}
+.leaderboard li.rank-3::before{color:#9466b1}
+.leaderboard li.rank-4::before{color:#aa7942}
+.leaderboard li.rank-5::before{color:#5d9881}
+.leaderboard li.rank-2 .leader-bar i{background:#7095ca}
+.leaderboard li.rank-3 .leader-bar i{background:#9b72ba}
+.leaderboard li.rank-4 .leader-bar i{background:#c08b50}
+.leaderboard li.rank-5 .leader-bar i{background:#6fa58f}
+.mode-card .mode-row-solo,.mode-card .mode-row-duo{margin:5px 0;padding:11px 10px;border-top:0;border-radius:9px}
+.mode-card .mode-row-solo{border-left:3px solid #7197cf;background:linear-gradient(90deg,#f2f7ff,#fff)}
+.mode-card .mode-row-duo{border-left:3px solid #a381c4;background:linear-gradient(90deg,#faf5ff,#fff)}
+.mode-card .mode-row-solo p{color:#466b9f}
+.mode-card .mode-row-duo p{color:#79579b}
+.mode-card .mode-chip.blue{border-color:#b4c9e7;color:#3969aa;background:#eaf2ff!important}
+.mode-card .mode-chip.violet{border-color:#d5c3e6;color:#845da8;background:#f4ecfb!important}
+.flow-list li:nth-child(1)>span{color:#5d82b9}
+.flow-list li:nth-child(2)>span{color:#8765ad}
+.flow-list li:nth-child(3)>span{color:#a67d4c}
+.flow-list li:nth-child(1){border-left:2px solid #d8e5f7;padding-left:9px}
+.flow-list li:nth-child(2){border-left:2px solid #e6d9f0;padding-left:9px}
+.flow-list li:nth-child(3){border-left:2px solid #f0e2cf;padding-left:9px}
