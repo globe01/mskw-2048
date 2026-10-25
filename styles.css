@@ -1500,3 +1500,17 @@ body{color:var(--ink);background:#f6f8fb}
 /* Keep supporting metadata readable on the navy-blue leader card. */
 .leaderboard li.rank-1 .leader-meta{color:#6f83a5}
 .leaderboard li.rank-1 .leader-bar{background:#d3deee}
+
+/* Give the supporting rail a clear purpose while keeping the board as the focal point. */
+.mode-card{display:flex;flex-direction:column}
+.session-intro{display:flex;align-items:flex-end;justify-content:space-between;padding:4px 0 14px;border-bottom:1px solid #e9edf3}
+.session-intro span{color:#8795aa;font-size:10px;font-weight:700;letter-spacing:.08em}
+.session-intro strong{color:#29446f;font-size:13px;font-weight:800;letter-spacing:-.02em}
+.mode-card .mode-row{padding:12px 0}
+.flow-list{display:grid;gap:0;padding:10px 0 0;margin:5px 0 0;border-top:1px solid #e9edf3;list-style:none;counter-reset:flow}
+.flow-list li{display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid #edf0f4}
+.flow-list li>span{color:#8292ad;font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace;font-size:12px;font-weight:700}
+.flow-list strong{display:block;color:#3b5279;font-size:12px;font-weight:800}
+.flow-list small{display:block;margin-top:3px;color:#8795aa;font-size:10px;line-height:1.35}
+.session-note{margin:auto 0 0;padding-top:16px;color:#8795aa;font-size:11px;line-height:1.45}
+@media(max-width:800px){.session-note{margin-top:14px}}
