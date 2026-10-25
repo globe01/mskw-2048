@@ -49,7 +49,7 @@
   let mode = 'solo'; let duration = defaults.solo; let wasdEnabled = false; let tiles = []; let nextId = 1; let score = 0; let maxTile = 0;
   let running = false; let modeSwitching = false; let modeSwitchTimer = null; let endAt = 0; let timerId = null; let lastResult = null; let submitted = false; let gameVersion = 0;
   let touchStartX = 0; let touchStartY = 0; let touchPointerId = null; let gestureStartedAt = 0;
-  let remoteLeaderboards = null; let adminTokenValue = '';
+  let remoteLeaderboards = null;
   const domTiles = new Map();
   const memoryStorage = new Map();
 
@@ -373,29 +373,39 @@
     restoreLeaderboardButton.hidden = !loadJson(BACKUP_KEY, null);
   }
   async function adminRequest(endpoint, payload) {
-    if (!adminTokenValue) adminTokenValue = window.prompt('请输入排行榜管理员密钥');
-    if (!adminTokenValue) throw new Error('cancelled');
-    return apiRequest(endpoint, { method: 'POST', headers: { 'X-Admin-Token': adminTokenValue }, body: JSON.stringify(payload || {}) });
+    const session = await apiRequest('/api/admin/session');
+    return apiRequest(endpoint, { method: 'POST', headers: { 'X-CSRF-Token': session.csrf }, body: JSON.stringify(payload || {}) });
   }
   async function backupLeaderboard() {
-    const snapshot = saveLeaderboardBackup(); downloadLeaderboardBackup(snapshot);
-    try { await adminRequest('/api/admin/backup'); setLeaderboardStatus('已备份现场排行榜'); }
-    catch (_) { setLeaderboardStatus('已下载本机备份服务器备份未连接'); }
+    if (window.location.protocol === 'file:') {
+      downloadLeaderboardBackup(saveLeaderboardBackup()); setLeaderboardStatus('已下载本机备份');
+    } else {
+      try {
+        const result = await adminRequest('/api/admin/backup');
+        const snapshot = { savedAt: new Date().toISOString(), data: result.data };
+        saveJson(BACKUP_KEY, snapshot); downloadLeaderboardBackup(snapshot); setLeaderboardStatus('已备份两榜完整成绩');
+      } catch (_) { setLeaderboardStatus('请先在 /admin 登录账号，再备份现场成绩'); }
+    }
     renderLeaderboard();
   }
   async function clearLeaderboard() {
-    if (!confirm('清空前会自动备份当前排行榜。确定清空吗')) return;
-    const snapshot = saveLeaderboardBackup(); downloadLeaderboardBackup(snapshot);
-    try {
-      const result = await adminRequest('/api/admin/clear'); setRemoteLeaderboards(result.data); setLeaderboardStatus('已备份并清空现场排行榜');
-    } catch (_) { saveJson(STORAGE_KEY, { solo: [], duo: [] }); remoteLeaderboards = { solo: [], duo: [] }; setLeaderboardStatus('已备份并清空本机排行榜'); }
+    if (!confirm('将清空单人和双人两个排行榜，清空前会自动备份。确定清空吗？')) return;
+    if (window.location.protocol === 'file:') {
+      downloadLeaderboardBackup(saveLeaderboardBackup()); setRemoteLeaderboards({ solo: [], duo: [] }); setLeaderboardStatus('已备份并清空本机排行榜');
+    } else {
+      try { const result = await adminRequest('/api/admin/clear'); setRemoteLeaderboards(result.data); setLeaderboardStatus('已备份并清空现场排行榜'); }
+      catch (_) { setLeaderboardStatus('清空未完成，请先在 /admin 登录并检查连接'); }
+    }
     renderLeaderboard();
   }
   async function restoreLeaderboard() {
     const snapshot = loadJson(BACKUP_KEY, null); if (!snapshot || !snapshot.data) return;
     if (!confirm('将恢复最近一次备份并覆盖当前排行榜。确定恢复吗')) return;
-    try { const result = await adminRequest('/api/admin/restore', { data: snapshot.data }); setRemoteLeaderboards(result.data); setLeaderboardStatus('已恢复现场排行榜'); }
-    catch (_) { setRemoteLeaderboards({ solo: snapshot.data.solo || [], duo: snapshot.data.duo || [] }); setLeaderboardStatus('已恢复本机备份'); }
+    if (window.location.protocol === 'file:') { setRemoteLeaderboards({ solo: snapshot.data.solo || [], duo: snapshot.data.duo || [] }); setLeaderboardStatus('已恢复本机备份'); }
+    else {
+      try { const result = await adminRequest('/api/admin/restore', { data: snapshot.data }); setRemoteLeaderboards(result.data); setLeaderboardStatus('已恢复现场排行榜'); }
+      catch (_) { setLeaderboardStatus('恢复未完成，请先在 /admin 登录并检查连接'); }
+    }
     renderLeaderboard();
   }
   async function submitScore() {

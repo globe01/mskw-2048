@@ -1,37 +1,36 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#101a35" />
-  <title>码上开玩 · 现场控制台</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="favicon.svg" />
-  <link rel="stylesheet" href="admin.css" />
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#edf1f7" /><title>码上开玩 · 现场控制台</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml" /><link rel="stylesheet" href="admin.css" />
 </head>
 <body>
-  <main class="admin-shell">
-    <header class="admin-header">
-      <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2" opacity=".65"/><rect x="3" y="13" width="8" height="8" rx="2" opacity=".65"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></span><span>码上开玩 <em>· 现场控制台</em></span></div>
-      <a class="back-link" href="/">返回游戏</a>
-    </header>
-
-    <section id="login-view" class="login-view">
-      <div class="login-card">
-        <p class="eyebrow">EVENT CONTROL</p>
-        <h1>排行榜管理</h1>
-        <p class="muted">输入现场管理员密钥后查看和管理成绩。</p>
-        <form id="login-form"><label for="token-input">管理员密钥</label><input id="token-input" type="password" autocomplete="current-password" required placeholder="输入 ADMIN_TOKEN" /><button class="primary" type="submit">进入控制台</button><p id="login-error" class="error" role="alert"></p></form>
-      </div>
-    </section>
-
-    <section id="dashboard-view" hidden>
-      <div class="dashboard-top"><div><p class="eyebrow">LIVE SCOREBOARD</p><h1>活动成绩</h1><p id="last-sync" class="muted">尚未同步</p></div><div class="top-actions"><span id="health" class="health"><i></i>未连接</span><button id="refresh-button" class="quiet">刷新</button><button id="logout-button" class="quiet">退出</button></div></div>
-      <div class="metrics"><article><span>单人记录</span><strong id="solo-count">0</strong><small>完整成绩</small></article><article><span>双人记录</span><strong id="duo-count">0</strong><small>完整成绩</small></article><article><span>备份文件</span><strong id="backup-count">0</strong><small>服务器留档</small></article></div>
-      <section class="panel scores-panel"><div class="panel-head"><div class="tabs" role="tablist"><button class="tab active" data-mode="solo" role="tab">单人极速</button><button class="tab" data-mode="duo" role="tab">双人协作</button></div><div class="panel-actions"><button id="backup-button" class="quiet">备份</button><button id="clear-button" class="danger">备份并清空</button></div></div><div class="table-wrap"><table><thead><tr><th>排名</th><th>昵称</th><th>得分</th><th>最高块</th><th>时长</th><th>提交时间</th></tr></thead><tbody id="score-rows"></tbody></table><p id="empty-state" class="empty">暂无成绩</p></div></section>
-      <section class="panel archive-panel"><div class="panel-head"><div><h2>恢复成绩</h2><p class="muted">选择此前导出的 JSON 备份，恢复前会自动保存当前榜单。</p></div><label class="upload-button">选择备份<input id="restore-file" type="file" accept="application/json" /></label></div><p id="action-status" class="action-status" role="status"></p></section>
-    </section>
-  </main>
-  <script src="admin.js"></script>
-</body>
-</html>
+<main class="admin-shell">
+<header class="admin-header">
+<a class="brand" href="/" aria-label="码上开玩，返回游戏"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2" opacity=".5"/><rect x="2" y="13" width="9" height="9" rx="2" opacity=".5"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg><span>码上开玩<em>现场控制台</em></span></a>
+<a class="back-link" href="/">返回游戏 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+</header>
+<section id="login-view" class="login-view">
+<div class="login-art" aria-hidden="true"><span class="art-label">码上开玩</span><div class="art-number">20<br><span>48</span><i>+</i></div><p>一个棋盘，无限可能。</p></div>
+<div class="login-card"><p class="eyebrow">现场管理</p><h1>欢迎回来。</h1>
+<form id="login-form">
+<label for="username-input">账号</label><input id="username-input" name="username" autocomplete="username" maxlength="64" required />
+<label for="password-input">密码</label><div class="password-field"><input id="password-input" name="password" type="password" autocomplete="current-password" maxlength="256" required /><button id="toggle-password" type="button" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+<button id="login-button" class="primary" type="submit">登录控制台 <span aria-hidden="true">→</span></button><p id="login-error" class="error" role="alert"></p>
+</form></div>
+</section>
+<section id="dashboard-view" hidden>
+<div class="dashboard-top"><div><p class="eyebrow">码上开玩 / 2048</p><h1>现场成绩</h1></div><div class="top-actions"><span id="health" class="health"><i></i>连接中</span><button id="refresh-button" class="quiet" type="button">刷新</button><button id="logout-button" class="text-button" type="button">退出</button></div></div>
+<div class="workspace-head"><div class="tabs" role="tablist" aria-label="成绩模式"><span class="tab-indicator" aria-hidden="true"></span><button id="tab-solo" class="tab active" data-mode="solo" role="tab" aria-selected="true" aria-controls="mode-content" tabindex="0">单人极速</button><button id="tab-duo" class="tab" data-mode="duo" role="tab" aria-selected="false" aria-controls="mode-content" tabindex="-1">双人协作</button></div><span id="last-sync" class="sync-label">尚未同步</span></div>
+<div id="mode-content" role="tabpanel" aria-labelledby="tab-solo" data-mode="solo">
+<div class="metrics"><article><span>已完成挑战</span><strong id="round-count">0</strong><small id="mode-caption">单人极速</small></article><article><span>最高得分</span><strong id="best-score">—</strong><small id="best-player">等待首位挑战者</small></article><article><span>平均得分</span><strong id="average-score">—</strong><small>当前模式全部成绩</small></article><article><span>最大合成</span><strong id="best-tile">—</strong><small id="duration-caption">时长 —</small></article></div>
+<div class="charts"><section class="panel chart-panel"><div class="chart-heading"><h2>分数分布</h2><span id="distribution-caption">0 局</span></div><div id="distribution-chart" class="chart"></div></section><section class="panel chart-panel"><div class="chart-heading"><h2>参与节奏</h2><span id="activity-caption">提交时间</span></div><div id="activity-chart" class="chart"></div></section></div>
+<section class="panel scores-panel"><div class="panel-head"><h2>完整排名 <span id="record-count" class="count-label">0</span></h2><div class="panel-actions"><label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="search-input" type="search" placeholder="查找昵称" aria-label="查找昵称" maxlength="100" /></label><button id="export-button" class="quiet" type="button">导出 CSV</button></div></div><div class="table-wrap"><table><thead><tr><th scope="col">名次</th><th scope="col">昵称</th><th scope="col">得分</th><th scope="col">最高块</th><th scope="col">时长</th><th scope="col">提交时间</th></tr></thead><tbody id="score-rows"></tbody></table><p id="empty-state" class="empty">还没有挑战记录</p></div><div class="pagination"><span id="page-status"></span><div><button id="previous-page" class="text-button" type="button" aria-label="上一页">←</button><button id="next-page" class="text-button" type="button" aria-label="下一页">→</button></div></div></section>
+</div>
+<section class="archive-panel"><div class="archive-heading"><div><h2>数据与备份</h2><p>备份包含两种模式的完整成绩，清空与恢复前自动留档。</p></div><div class="archive-actions"><button id="backup-button" class="quiet" type="button">备份并下载</button><label class="upload-button">导入备份<input id="restore-file" type="file" accept=".json,application/json" aria-label="导入 JSON 备份" /></label><button id="clear-button" class="danger" type="button">清空两榜</button></div></div><details id="backup-details"><summary>服务器存档 <span id="backup-count">0</span><span class="archive-summary-note">最近 30 份</span></summary><ul id="backup-list"></ul><p id="backup-empty" class="muted">暂无存档</p></details></section>
+<p id="action-status" class="action-status" role="status" aria-live="polite"></p>
+</section>
+<footer class="admin-footer">码上开玩 <span>2048 · 活动现场管理</span></footer>
+</main><script src="admin.js"></script>
+</body></html>

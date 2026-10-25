@@ -6,11 +6,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const url = require('url');
+const { createAuth } = require('./auth');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+const auth = createAuth({ username: process.env.ADMIN_USERNAME, passwordHash: process.env.ADMIN_PASSWORD_HASH, secure: process.env.NODE_ENV === 'production' });
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'leaderboard.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
@@ -60,19 +61,32 @@ function listBackups() {
 }
 function json(res, status, value) {
   const body = JSON.stringify(value);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Length': Buffer.byteLength(body), 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Length': Buffer.byteLength(body) });
   res.end(body);
 }
 function noContent(res) { res.writeHead(204, { 'Access-Control-Allow-Origin': '*' }); res.end(); }
-function readBody(req) {
+function readBody(req, limit = MAX_BODY) {
   return new Promise((resolve, reject) => {
-    let body = ''; let size = 0;
-    req.on('data', chunk => { size += chunk.length; if (size > MAX_BODY) { reject(new Error('body_too_large')); req.destroy(); } else body += chunk; });
-    req.on('end', () => { try { resolve(body ? JSON.parse(body) : {}); } catch (_) { reject(new Error('invalid_json')); } });
+    const chunks = []; let size = 0; let exceeded = false;
+    req.on('data', chunk => {
+      if (exceeded) return;
+      size += chunk.length;
+      if (size > limit) { exceeded = true; chunks.length = 0; reject(new Error('body_too_large')); }
+      else chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (exceeded) return;
+      try {
+        // Decode after concatenation so Chinese characters split across packets survive.
+        const body = Buffer.concat(chunks).toString('utf8');
+        const value = body ? JSON.parse(body) : {};
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
+        resolve(value);
+      } catch (_) { reject(new Error('invalid_json')); }
+    });
     req.on('error', reject);
   });
 }
-function admin(req) { return ADMIN_TOKEN && req.headers['x-admin-token'] === ADMIN_TOKEN; }
 function rateLimited(ip) {
   const now = Date.now(); const record = rate.get(ip) || { count: 0, at: now };
   if (now - record.at > 60_000) { record.count = 0; record.at = now; }
@@ -100,7 +114,53 @@ function serveStatic(req, res, pathname) {
 
 const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true); const pathname = parsed.pathname;
-  if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Token', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }); return res.end(); }
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  if (pathname.startsWith('/api/admin/')) {
+    if (pathname === '/api/admin/login' && req.method === 'POST') {
+      try {
+        const result = await auth.login(req, res, await readBody(req));
+        const { status, ...body } = result;
+        return json(res, status, body);
+      } catch (_) { return json(res, 400, { error: 'invalid_json' }); }
+    }
+    const session = auth.session(req);
+    if (!session) return json(res, 401, { error: 'admin_required' });
+    if (req.method !== 'GET' && !auth.canMutate(req, session)) return json(res, 403, { error: 'invalid_csrf' });
+    if (pathname === '/api/admin/session' && req.method === 'GET') return json(res, 200, { username: session.username, csrf: session.csrf, expiresAt: session.expiresAt });
+    if (pathname === '/api/admin/logout' && req.method === 'POST') { auth.logout(req, res); return json(res, 200, { ok: true }); }
+    if (pathname === '/api/admin/summary' && req.method === 'GET') return json(res, 200, { ok: true, serverTime: new Date().toISOString(), data: readData(), backups: listBackups() });
+    if (pathname === '/api/admin/backups' && req.method === 'GET') return json(res, 200, { backups: listBackups() });
+    if (pathname.startsWith('/api/admin/backups/') && req.method === 'GET') {
+      const name = pathname.slice('/api/admin/backups/'.length);
+      if (!/^[a-zA-Z0-9_.-]+\.json$/.test(name)) return json(res, 400, { error: 'invalid_backup' });
+      const file = path.join(BACKUP_DIR, name);
+      if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return json(res, 404, { error: 'not_found' });
+      res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      return fs.createReadStream(file).pipe(res);
+    }
+    if (pathname === '/api/admin/backup' && req.method === 'POST') {
+      try { const data = readData(); const file = backup(data, 'manual'); return json(res, 200, { ok: true, file: path.basename(file), data }); }
+      catch (_) { return json(res, 500, { error: 'backup_failed' }); }
+    }
+    if (pathname === '/api/admin/clear' && req.method === 'POST') {
+      try { const data = readData(); const file = backup(data, 'before-clear'); writeData(emptyData()); return json(res, 200, { ok: true, file: path.basename(file), data: emptyData() }); }
+      catch (_) { return json(res, 500, { error: 'clear_failed' }); }
+    }
+    if (pathname === '/api/admin/restore' && req.method === 'POST') {
+      try {
+        const body = await readBody(req, 8 * 1024 * 1024);
+        if (!body.data || ![...MODES].every(mode => Array.isArray(body.data[mode]) && body.data[mode].length <= MAX_ENTRIES && body.data[mode].every(isValidEntry))) return json(res, 400, { error: 'invalid_backup' });
+        const restored = safeData(body.data);
+        backup(readData(), 'before-restore'); writeData(restored);
+        return json(res, 200, { ok: true, data: restored });
+      } catch (error) { return json(res, 400, { error: error.message }); }
+    }
+    return json(res, 404, { error: 'not_found' });
+  }
+  if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }); return res.end(); }
   if (pathname === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, service: '2048', time: new Date().toISOString() });
   if (pathname === '/api/leaderboard' && req.method === 'GET') {
     const data = readData(); const mode = parsed.query.mode;
@@ -116,19 +176,8 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { mode: entry.mode, entries: data[entry.mode].slice(0, PUBLIC_ENTRIES), rank, total: data[entry.mode].length, accepted: rank > 0 });
     } catch (error) { return json(res, error.message === 'body_too_large' ? 413 : 400, { error: error.message }); }
   }
-  if (pathname.startsWith('/api/admin/')) {
-    if (!admin(req)) return json(res, 401, { error: 'admin_required' });
-    if (pathname === '/api/admin/summary' && req.method === 'GET') return json(res, 200, { ok: true, serverTime: new Date().toISOString(), data: readData(), backups: listBackups() });
-    if (pathname === '/api/admin/backups' && req.method === 'GET') return json(res, 200, { backups: listBackups() });
-    if (pathname === '/api/admin/backup' && req.method === 'POST') { const data = readData(); const file = backup(data, 'manual'); return json(res, 200, { ok: true, file: path.basename(file), data }); }
-    if (pathname === '/api/admin/clear' && req.method === 'POST') { const data = readData(); const file = backup(data, 'before-clear'); writeData(emptyData()); return json(res, 200, { ok: true, file: path.basename(file), data: emptyData() }); }
-    if (pathname === '/api/admin/restore' && req.method === 'POST') {
-      try { const body = await readBody(req); const restored = safeData(body.data); backup(readData(), 'before-restore'); writeData(restored); return json(res, 200, { ok: true, data: restored }); } catch (error) { return json(res, 400, { error: error.message }); }
-    }
-    return json(res, 404, { error: 'not_found' });
-  }
   if (req.method === 'GET') return serveStatic(req, res, pathname);
   return noContent(res);
 });
 
-server.listen(PORT, HOST, () => { fs.mkdirSync(DATA_DIR, { recursive: true }); if (!fs.existsSync(DATA_FILE)) writeData(emptyData()); console.log(`2048 server listening on http://${HOST}:${PORT}`); });
+server.listen(PORT, HOST, () => { fs.mkdirSync(DATA_DIR, { recursive: true }); if (!fs.existsSync(DATA_FILE)) writeData(emptyData()); console.log(`2048 server listening on http://${HOST}:${server.address().port}`); });

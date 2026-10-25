@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "description": "码上开玩 2048 活动游戏服务",
-  "scripts": { "start": "node server.js", "check": "node --check server.js && node --check app.js" },
+  "scripts": { "start": "node server.js", "check": "node --check server.js && node --check auth.js && node --check app.js && node --check admin.js && node --check scripts/set-admin.js", "test": "node --test test/*.test.js", "admin:setup": "node scripts/set-admin.js" },
   "engines": { "node": ">=18" }
 }
