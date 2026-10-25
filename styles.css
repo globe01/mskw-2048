@@ -1567,3 +1567,47 @@ body{color:var(--ink);background:#f6f8fb}
 }
 .session-intro{border-bottom:0}
 .wasd-control{border-left:0}
+
+/* Restore the compact collaboration card: two clear rows, no process microcopy. */
+.mode-card{
+  display:block;
+  align-self:start;
+  height:auto!important;
+  min-height:0;
+  padding:20px 21px;
+}
+.mode-card .side-title{margin-bottom:12px}
+.mode-card .mode-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 0;
+  border-top:1px solid #edf0f4;
+}
+.mode-card .mode-row p{
+  margin:0;
+  color:#536584;
+  font-size:13px;
+  font-weight:650;
+}
+.mode-card .mode-chip{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  width:34px;
+  height:auto;
+  padding:3px 0 3px 9px;
+  border:0;
+  border-left:2px solid #6a84b7;
+  border-radius:0;
+  color:#41669e;
+  background:transparent!important;
+  font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.05em;
+}
+.mode-card .mode-chip.violet{
+  border-left-color:#9777b5;
+  color:#76549e;
+}
