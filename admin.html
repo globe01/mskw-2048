@@ -12,12 +12,12 @@
 <a class="back-link" href="/">返回游戏 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
 </header>
 <section id="login-view" class="login-view">
-<div class="login-art" aria-hidden="true"><span class="art-label">码上开玩</span><div class="art-number">20<br><span>48</span><i>+</i></div><p>一个棋盘，无限可能。</p></div>
-<div class="login-card"><p class="eyebrow">现场管理</p><h1>欢迎回来。</h1>
+<div class="login-art" aria-hidden="true"><span class="art-label">码上开玩</span><div class="art-number">20<span>48</span></div><p>一个棋盘，无限可能。</p></div>
+<div class="login-card"><p class="eyebrow">现场管理</p><h1>登录控制台</h1>
 <form id="login-form">
 <label for="username-input">账号</label><input id="username-input" name="username" autocomplete="username" maxlength="64" required />
 <label for="password-input">密码</label><div class="password-field"><input id="password-input" name="password" type="password" autocomplete="current-password" maxlength="256" required /><button id="toggle-password" type="button" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
-<button id="login-button" class="primary" type="submit">登录控制台 <span aria-hidden="true">→</span></button><p id="login-error" class="error" role="alert"></p>
+<button id="login-button" class="primary" type="submit">登录</button><p id="login-error" class="error" role="alert"></p>
 </form></div>
 </section>
 <section id="dashboard-view" hidden>
@@ -31,6 +31,6 @@
 <section class="archive-panel"><div class="archive-heading"><div><h2>数据与备份</h2><p>备份包含两种模式的完整成绩，清空与恢复前自动留档。</p></div><div class="archive-actions"><button id="backup-button" class="quiet" type="button">备份并下载</button><label class="upload-button">导入备份<input id="restore-file" type="file" accept=".json,application/json" aria-label="导入 JSON 备份" /></label><button id="clear-button" class="danger" type="button">清空两榜</button></div></div><details id="backup-details"><summary>服务器存档 <span id="backup-count">0</span><span class="archive-summary-note">最近 30 份</span></summary><ul id="backup-list"></ul><p id="backup-empty" class="muted">暂无存档</p></details></section>
 <p id="action-status" class="action-status" role="status" aria-live="polite"></p>
 </section>
-<footer class="admin-footer">码上开玩 <span>2048 · 活动现场管理</span></footer>
+<footer class="admin-footer">码上开玩 <span>计算机学院和密码与网络空间安全学院</span></footer>
 </main><script src="admin.js"></script>
 </body></html>
