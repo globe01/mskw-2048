@@ -1479,3 +1479,21 @@ body{color:var(--ink);background:#f6f8fb}
 .mode-chip.violet{border-color:#d9d0e9;color:#735aa8;background:#f7f4fb!important}
 @media(max-width:560px){.guide-tools{gap:8px}.wasd-control{font-size:9px}.leaderboard{padding:18px 16px 14px}}
 .leaderboard li.rank-2,.leaderboard li.rank-3,.leaderboard li.rank-4,.leaderboard li.rank-5{border-top:0!important;border-color:transparent #e9edf3 #e9edf3!important}
+
+/* Calm final-seconds cue: a small state change instead of a bouncing panel. */
+.scorebar .timer{position:relative;overflow:hidden}
+.timer.urgent{animation:none;background:#f7f3f3!important;border-color:#eadfdf!important}
+.timer.urgent strong,.timer.urgent small{color:#a15e5b}
+.timer.urgent strong{animation:timer-pulse 1.15s ease-in-out infinite}
+.timer.urgent::after{content:"最后 5 秒";position:absolute;right:12px;top:9px;color:#b07b78;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.9}
+@keyframes timer-pulse{0%,100%{opacity:1}50%{opacity:.68}}
+
+/* Compact control rail for the optional keyboard layout. */
+.guide{min-height:42px;padding:8px 12px;color:#7c899e;font-size:11px;letter-spacing:.01em}
+.guide-tools{gap:10px;flex-shrink:0}
+.wasd-control{height:25px;padding-left:10px;border-left:1px solid #e2e8f0;gap:7px;color:#60718b;font-size:10px;font-weight:800;letter-spacing:.08em}
+.wasd-track{width:25px;height:14px;border-radius:7px;background:#edf1f6}
+.wasd-track i{top:2px;left:2px;width:8px;height:8px}
+.wasd-control input:checked + .wasd-track i{transform:translateX(11px)}
+.touch-device .guide{justify-content:space-between;text-align:left}
+@media(max-width:420px){.guide{padding-inline:10px}.guide-tools{gap:7px}.wasd-control{padding-left:8px}.timer.urgent::after{right:8px;font-size:8px}}
