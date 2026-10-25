@@ -41,6 +41,7 @@
   const resultRank = $('#result-rank');
   const resultTitle = $('#result-title');
   const playerName = $('#player-name');
+  const submitButton = $('#submit-score');
   const submitHint = $('#submit-hint');
   const overlayTitle = $('#overlay-title');
   const overlayMessage = $('#overlay-message');
@@ -333,7 +334,18 @@
   function updateTimerDisplay(ms) { const seconds = Math.max(0, ms / 1000); timerEl.textContent = seconds.toFixed(1); timerBox.classList.toggle('urgent', seconds <= 5 && seconds > 0); }
   function tick() { if (!running) return; const remaining = endAt - performance.now(); updateTimerDisplay(remaining); if (remaining <= 0) { finishGame('time'); return; } timerId = requestAnimationFrame(tick); }
   function startGame() { if (running) return; if (lastResult && !submitted && !window.confirm('\u4e0a\u4e00\u5c40\u6210\u7ee9\u5c1a\u672a\u4fdd\u5b58\uff0c\u786e\u5b9a\u653e\u5f03\u8fd9\u6761\u6210\u7ee9\u5e76\u5f00\u59cb\u65b0\u5c40\u5417\uff1f')) return; if (lastResult && !submitted) { lastResult = null; pendingResultButton.hidden = true; } if (modeSwitchTimer) { window.clearTimeout(modeSwitchTimer); modeSwitchTimer = null; } modeSwitching = false; boardWrap.classList.remove('ready-stage'); gameVersion += 1; normalizeDuration(); initBoard(); running = true; submitted = false; endAt = performance.now() + duration * 1000; overlay.classList.remove('visible'); startButton.disabled = true; restartButton.disabled = false; restartButton.textContent = '\u7ed3\u675f\u672c\u5c40'; restartButton.title = '\u7ed3\u675f\u672c\u5c40\u524d\u9700\u8981\u786e\u8ba4'; setModeControls(true); setLeaderboardControls(true); guideText.textContent = playingGuideText(); document.body.classList.add('is-playing'); timerId = requestAnimationFrame(tick); boardEl.focus(); }
-  function finishGame(reason) { if (!running) return; gameVersion += 1; running = false; cancelAnimationFrame(timerId); timerId = null; updateTimerDisplay(0); startButton.disabled = false; restartButton.disabled = false; restartButton.textContent = '\u91cd\u6765'; restartButton.title = ''; setModeControls(false); setLeaderboardControls(false); guideText.textContent = readyGuideText() + ' \u00b7 \u70b9\u51fb\u91cd\u6765\u91cd\u65b0\u51c6\u5907'; document.body.classList.remove('is-playing'); lastResult = { mode, score, maxTile, duration, reason, at: Date.now() }; pendingResultButton.hidden = true; resultScore.textContent = score; resultMax.textContent = maxTile || '\u2014'; const rank = resultRankFor(lastResult); resultRank.textContent = rank ? '\u8fdb\u5165' + (mode === 'solo' ? '\u5355\u4eba' : '\u53cc\u4eba') + '\u699c \u00b7 \u7b2c ' + rank + ' \u540d' : '\u672c\u5c40\u672a\u8fdb\u5165\u524d\u4e94'; resultTitle.textContent = reason === 'no-moves' ? '\u68cb\u76d8\u5df2\u6ee1' : reason === 'stopped' ? '\u672c\u5c40\u5df2\u7ed3\u675f' : '\u65f6\u95f4\u5230'; submitted = false; playerName.value = ''; submitHint.textContent = '\u53ef\u7a0d\u540e\u4fdd\u5b58\uff0c\u5173\u95ed\u5f39\u7a97\u4e5f\u4e0d\u4f1a\u4e22\u5931'; if (typeof resultDialog.showModal === 'function') resultDialog.showModal(); else resultDialog.setAttribute('open', ''); }
+  function finishGame(reason) {
+    if (!running) return;
+    gameVersion += 1; running = false; cancelAnimationFrame(timerId); timerId = null; updateTimerDisplay(0);
+    boardWrap.classList.add('ready-stage');
+    overlayTitle.textContent = '\u51c6\u5907\u4e0b\u4e00\u5c40'; overlayMessage.textContent = '\u6210\u7ee9\u5df2\u8bb0\u5f55\uff0c\u70b9\u51fb\u5f00\u59cb\u8fdb\u5165\u4e0b\u4e00\u5c40\u3002'; overlay.classList.add('visible');
+    startButton.disabled = false; restartButton.disabled = false; restartButton.textContent = '\u91cd\u6765'; restartButton.title = '';
+    setModeControls(false); setLeaderboardControls(false); guideText.textContent = readyGuideText() + ' \u00b7 \u70b9\u51fb\u91cd\u6765\u91cd\u65b0\u51c6\u5907'; document.body.classList.remove('is-playing');
+    lastResult = { mode, score, maxTile, duration, reason, at: Date.now() }; pendingResultButton.hidden = true; resultScore.textContent = score; resultMax.textContent = maxTile || '\u2014';
+    const rank = resultRankFor(lastResult); resultRank.textContent = rank ? '\u8fdb\u5165' + (mode === 'solo' ? '\u5355\u4eba' : '\u53cc\u4eba') + '\u699c \u00b7 \u7b2c ' + rank + ' \u540d' : '\u63d0\u4ea4\u6210\u7ee9\u540e\u663e\u793a\u5b8c\u6574\u540d\u6b21';
+    resultTitle.textContent = reason === 'no-moves' ? '\u68cb\u76d8\u5df2\u6ee1' : reason === 'stopped' ? '\u672c\u5c40\u5df2\u7ed3\u675f' : '\u65f6\u95f4\u5230'; submitted = false; playerName.value = ''; playerName.disabled = false; submitButton.disabled = false; submitButton.textContent = '\u4fdd\u5b58\u6210\u7ee9'; submitHint.textContent = '\u53ef\u7a0d\u540e\u4fdd\u5b58\uff0c\u5173\u95ed\u5f39\u7a97\u4e5f\u4e0d\u4f1a\u4e22\u5931';
+    if (typeof resultDialog.showModal === 'function') resultDialog.showModal(); else resultDialog.setAttribute('open', '');
+  }
   function backupSnapshot() { return { savedAt: new Date().toISOString(), data: leaderboards() }; }
   function saveLeaderboardBackup() { const snapshot = backupSnapshot(); saveJson(BACKUP_KEY, snapshot); return snapshot; }
   function downloadLeaderboardBackup(snapshot) {
@@ -388,19 +400,23 @@
   }
   async function submitScore() {
     if (!lastResult || submitted) return;
-    submitted = true;
-    pendingResultButton.hidden = true;
-    const name = (playerName.value.trim() || '匿名玩家').slice(0, 12);
+    submitted = true; pendingResultButton.hidden = true;
+    const name = (playerName.value.trim() || '\u533f\u540d\u73a9\u5bb6').slice(0, 12);
     const entry = { mode: lastResult.mode, name, score: lastResult.score, maxTile: lastResult.maxTile, duration: lastResult.duration };
     try {
       const result = await apiRequest('/api/scores', { method: 'POST', body: JSON.stringify(entry) });
       if (result.mode && Array.isArray(result.entries)) { const all = leaderboards(); all[result.mode] = result.entries; setRemoteLeaderboards(all); }
-      submitHint.textContent = result.accepted ? '已保存到现场排行榜' : '成绩已记录';
+      if (Number.isInteger(result.rank) && Number.isInteger(result.total)) resultRank.textContent = '\u672c\u6a21\u5f0f\u5171' + result.total + '\u5c40 \u00b7 \u5f53\u524d\u7b2c ' + result.rank + '\u540d';
+      submitHint.textContent = result.accepted ? '\u5df2\u4fdd\u5b58\u5230\u73b0\u573a\u6392\u884c\u699c' : '\u6210\u7ee9\u5df2\u8bb0\u5f55';
     } catch (_) {
-      const all = localLeaderboards(); all[lastResult.mode] = [...(all[lastResult.mode] || []), { ...entry, at: lastResult.at }].sort((a, b) => b.score - a.score || b.maxTile - a.maxTile || a.at - b.at).slice(0, 5); saveJson(STORAGE_KEY, all); remoteLeaderboards = all;
-      submitHint.textContent = '服务器暂时不可用已保存到本机';
+      const all = localLeaderboards(); const candidate = { ...entry, at: lastResult.at };
+      const ranked = [...(all[lastResult.mode] || []), candidate].sort((a, b) => b.score - a.score || b.maxTile - a.maxTile || a.at - b.at);
+      all[lastResult.mode] = ranked.slice(0, 10000); saveJson(STORAGE_KEY, all); remoteLeaderboards = all;
+      resultRank.textContent = '\u672c\u673a\u8bb0\u5f55 \u00b7 \u5f53\u524d\u7b2c ' + (ranked.indexOf(candidate) + 1) + '\u540d\uff08\u5171' + ranked.length + '\u5c40\uff09';
+      submitHint.textContent = '\u670d\u52a1\u5668\u6682\u65f6\u4e0d\u53ef\u7528\uff0c\u5df2\u4fdd\u5b58\u5230\u672c\u673a';
     }
-    renderLeaderboard(); setTimeout(() => { if (resultDialog.open) resultDialog.close(); }, 500);
+    playerName.disabled = true; submitButton.disabled = true; submitButton.textContent = '\u5df2\u4fdd\u5b58';
+    renderLeaderboard();
   }
   function dismissResultDialog() {
     if (!lastResult || submitted) { if (resultDialog.open) resultDialog.close(); return; }

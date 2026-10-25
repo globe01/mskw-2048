@@ -1497,3 +1497,6 @@ body{color:var(--ink);background:#f6f8fb}
 .wasd-control input:checked + .wasd-track i{transform:translateX(11px)}
 .touch-device .guide{justify-content:space-between;text-align:left}
 @media(max-width:420px){.guide{padding-inline:10px}.guide-tools{gap:7px}.wasd-control{padding-left:8px}.timer.urgent::after{right:8px;font-size:8px}}
+/* Keep supporting metadata readable on the navy-blue leader card. */
+.leaderboard li.rank-1 .leader-meta{color:#6f83a5}
+.leaderboard li.rank-1 .leader-bar{background:#d3deee}

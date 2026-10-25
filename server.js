@@ -15,7 +15,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'leaderboard.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const MODES = new Set(['solo', 'duo']);
-const MAX_ENTRIES = 5;
+const PUBLIC_ENTRIES = 5;
+const MAX_ENTRIES = 10_000;
 const MAX_BODY = 16 * 1024;
 const rate = new Map();
 
@@ -32,6 +33,7 @@ function isValidEntry(entry) {
   return entry && typeof entry.name === 'string' && Number.isFinite(Number(entry.score)) && Number.isFinite(Number(entry.maxTile)) && Number.isFinite(Number(entry.duration)) && Number.isFinite(Number(entry.at));
 }
 function compare(a, b) { return Number(b.score) - Number(a.score) || Number(b.maxTile) - Number(a.maxTile) || Number(a.at) - Number(b.at); }
+function publicData(data) { return { solo: data.solo.slice(0, PUBLIC_ENTRIES), duo: data.duo.slice(0, PUBLIC_ENTRIES) }; }
 function readData() {
   try { return safeData(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))); } catch (_) { return emptyData(); }
 }
@@ -103,14 +105,15 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/leaderboard' && req.method === 'GET') {
     const data = readData(); const mode = parsed.query.mode;
     if (mode && !MODES.has(mode)) return json(res, 400, { error: 'invalid_mode' });
-    return json(res, 200, mode ? { mode, entries: data[mode] } : data);
+    return json(res, 200, mode ? { mode, entries: data[mode].slice(0, PUBLIC_ENTRIES) } : publicData(data));
   }
   if (pathname === '/api/scores' && req.method === 'POST') {
     const ip = req.socket.remoteAddress || 'unknown'; if (rateLimited(ip)) return json(res, 429, { error: 'rate_limited' });
     try {
       const entry = validScore(await readBody(req)); if (!entry) return json(res, 400, { error: 'invalid_score' });
       const data = readData(); data[entry.mode].push(entry); data[entry.mode].sort(compare); data[entry.mode] = data[entry.mode].slice(0, MAX_ENTRIES); writeData(data);
-      return json(res, 201, { mode: entry.mode, entries: data[entry.mode], accepted: data[entry.mode].some(item => item.id === entry.id) });
+      const rank = data[entry.mode].findIndex(item => item.id === entry.id) + 1;
+      return json(res, 201, { mode: entry.mode, entries: data[entry.mode].slice(0, PUBLIC_ENTRIES), rank, total: data[entry.mode].length, accepted: rank > 0 });
     } catch (error) { return json(res, error.message === 'body_too_large' ? 413 : 400, { error: error.message }); }
   }
   if (pathname.startsWith('/api/admin/')) {
