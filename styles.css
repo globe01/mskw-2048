@@ -1088,3 +1088,86 @@ body{
   .leaderboard ol{grid-template-columns:1fr}
   .leaderboard li.rank-top{grid-column:auto}
 }
+
+/* Editorial leaderboard treatment: quiet rules and typography instead of capsules. */
+.leaderboard,.mode-card{border-radius:14px}
+.leader-actions{gap:0}
+.icon-button{
+  border:0;
+  border-bottom:1px solid transparent;
+  border-radius:0;
+  padding:4px 3px 3px;
+  color:#8b95a7;
+  background:transparent;
+  box-shadow:none;
+  font-size:10px;
+  font-weight:650;
+  letter-spacing:.02em;
+}
+.icon-button + .icon-button{
+  margin-left:10px;
+  padding-left:11px;
+  border-left:1px solid #e7eaf0;
+}
+.icon-button:hover,.icon-button.danger:hover{
+  color:#3f568e;
+  border-bottom-color:#667bb8;
+  background:transparent;
+}
+.icon-button.danger:hover{color:#9b5368;border-bottom-color:#c58a9b}
+.icon-button svg{width:12px;height:12px;stroke-width:1.65}
+.leaderboard ol{gap:0}
+.leaderboard li,
+.leaderboard li.rank-1{
+  border:0;
+  border-top:1px solid #eceef3;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  transform:none;
+  transition:background .18s ease;
+}
+.leaderboard li:last-child{border-bottom:1px solid #eceef3}
+.leaderboard li:hover,
+.leaderboard li.rank-1:hover{border-color:#eceef3;box-shadow:none;transform:none;background:#fafbfc}
+.leaderboard li::before,
+.leaderboard li.rank-1::before{
+  width:auto;height:auto;
+  border-radius:0;
+  color:#9aa3b2;
+  background:transparent;
+  box-shadow:none;
+  font-family:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.04em;
+}
+.leaderboard li.rank-1{
+  min-height:92px;
+  padding:16px 0 14px;
+  background:linear-gradient(90deg,rgba(91,111,177,.055),transparent 72%);
+}
+.leaderboard li.rank-1::before{color:#536ba6;font-size:18px;font-weight:500}
+.leaderboard li.rank-1 .leader-name{color:#2e3c5f;font-size:15px;font-weight:800}
+.leaderboard li.rank-1 .leader-score{color:#1f315b;font-size:23px;font-weight:850}
+.leaderboard li.rank-2::before{color:#68758d;background:transparent}
+.leaderboard li.rank-3::before{color:#7e6d62;background:transparent}
+.leaderboard li.rank-4::before,.leaderboard li.rank-5::before{color:#9aa3b2;background:transparent}
+.leaderboard .leader-score small{color:#9aa3b2;font-size:9px;font-weight:600}
+.leader-bar,.leaderboard li.rank-1 .leader-bar{height:2px;border-radius:0;background:#e7e9ee}
+.leader-bar i,.leaderboard li.rank-1 .leader-bar i,
+.leaderboard li.rank-2 .leader-bar i,.leaderboard li.rank-3 .leader-bar i,
+.leaderboard li.rank-4 .leader-bar i,.leaderboard li.rank-5 .leader-bar i{
+  height:100%;border-radius:0;background:#667bb8;transition:width .3s ease
+}
+.leaderboard li.rank-1 .leader-bar i{background:#536ba6}
+.mode-chip{
+  width:31px;height:auto;padding:3px 0 3px 8px;
+  border-left:2px solid #5c77d3;
+  border-radius:0;
+  color:#5269b2;
+  background:transparent!important;
+  font-family:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+  font-size:10px;font-weight:700;letter-spacing:.06em;
+}
+.mode-chip.violet{border-left-color:#8b63b7;color:#76549e}
