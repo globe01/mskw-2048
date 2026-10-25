@@ -1296,3 +1296,78 @@ body{
   .leaderboard li.rank-1{min-height:78px;padding-left:9px}
   .leader-bar,.leaderboard li.rank-1 .leader-bar{width:min(100%,220px)}
 }
+
+/* Stronger leaderboard hierarchy: one hero score, then quiet supporting cards. */
+.leaderboard ol{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  align-content:start;
+  align-items:stretch;
+}
+.leaderboard li,
+.leaderboard li.rank-1{
+  min-height:78px;
+  padding:13px 14px;
+  border:1px solid #e1e6ef;
+  border-radius:13px;
+  background:#f8f9fc;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+  color:#263a64;
+}
+.leaderboard li:hover,
+.leaderboard li.rank-1:hover{
+  border-color:#c9d3e9;
+  background:#f4f7fc;
+  box-shadow:0 8px 18px rgba(48,70,119,.08);
+  transform:translateY(-1px);
+}
+.leaderboard li.rank-1{
+  grid-column:1 / -1;
+  min-height:122px;
+  padding:18px 20px;
+  border:0;
+  border-radius:16px;
+  background:#304c88;
+  box-shadow:0 15px 30px rgba(39,63,116,.18),inset 0 1px 0 rgba(255,255,255,.15);
+  color:#fff;
+}
+.leaderboard li::before,
+.leaderboard li.rank-1::before{
+  content:counter(rank);
+  width:auto;height:auto;
+  justify-self:start;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:#6076ae;
+  font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace;
+  font-size:18px;font-weight:650;letter-spacing:0;
+}
+.leaderboard li.rank-1::before{color:rgba(255,255,255,.72);font-size:34px;font-weight:500}
+.leaderboard li.rank-2{border-top:2px solid #7185bd}
+.leaderboard li.rank-3{border-top:2px solid #9c79b8}
+.leaderboard li.rank-4,.leaderboard li.rank-5{border-top:2px solid #cbd4e5}
+.leaderboard li.rank-1 .leader-main{gap:7px}
+.leaderboard li.rank-1 .leader-name{color:#fff;font-size:20px;font-weight:800}
+.leaderboard li.rank-1 .leader-meta{color:rgba(255,255,255,.68);font-size:11px}
+.leaderboard li.rank-1 .leader-score{color:#fff;font-size:31px;font-weight:800}
+.leaderboard li.rank-1 .leader-score small{color:rgba(255,255,255,.68)}
+.leaderboard li.rank-1 .leader-bar{width:min(100%,360px);height:3px;margin-top:2px;background:rgba(255,255,255,.22)}
+.leaderboard li.rank-1 .leader-bar i{background:#fff}
+.leaderboard li:not(.rank-1) .leader-name{color:#354b79;font-size:14px;font-weight:800}
+.leaderboard li:not(.rank-1) .leader-meta{color:#8190aa;font-size:10px}
+.leaderboard li:not(.rank-1) .leader-score{color:#233762;font-size:18px;font-weight:800}
+.leaderboard li:not(.rank-1) .leader-score small{color:#8b98b0}
+.leaderboard li:not(.rank-1) .leader-bar{width:100%;height:2px;margin-top:2px;background:#e0e6f0}
+.leaderboard li:not(.rank-1) .leader-bar i{background:#657db9}
+@media(min-width:561px){
+  .leaderboard li.rank-2:last-child,
+  .leaderboard li.rank-3:last-child,
+  .leaderboard li.rank-4:last-child,
+  .leaderboard li.rank-5:last-child{grid-column:1 / -1}
+}
+@media(max-width:560px){
+  .leaderboard ol{grid-template-columns:1fr;gap:8px}
+  .leaderboard li.rank-1{grid-column:auto;min-height:108px;padding:16px 15px}
+  .leaderboard li.rank-1 .leader-score{font-size:27px}
+}
