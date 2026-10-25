@@ -1171,3 +1171,86 @@ body{
   font-size:10px;font-weight:700;letter-spacing:.06em;
 }
 .mode-chip.violet{border-left-color:#8b63b7;color:#76549e}
+
+/* Result sheet: spacious Chinese typography and a restrained editorial rhythm. */
+.result-card{
+  padding:38px 34px 30px;
+  font-family:"PingFang SC","Noto Sans SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-synthesis:none;
+  text-rendering:optimizeLegibility;
+}
+.result-card::before{left:34px;right:34px;height:2px;border-radius:0;background:#5e73c7}
+.result-card::after{right:0;bottom:-18px;color:rgba(61,90,170,.028);font-size:76px;font-weight:800;letter-spacing:-.08em}
+.close-button{
+  top:18px;right:19px;width:34px;height:34px;
+  border:0;border-radius:0;color:#7e8eaa;background:transparent;
+}
+.close-button:hover{color:#31456f;background:transparent;transform:none}
+.result-label{
+  margin:0 0 12px;
+  color:#6678bd;
+  font-size:11px;font-weight:700;letter-spacing:.2em;
+}
+.result-card h2{
+  margin:0 54px 29px 0;
+  color:#1b2b55;
+  font-size:clamp(31px,7vw,40px);
+  font-weight:720;
+  line-height:1.16;
+  letter-spacing:-.035em;
+}
+.result-numbers{gap:0;margin:0 0 22px}
+.result-numbers div,
+.result-numbers div:first-child{
+  min-height:108px;
+  padding:15px 18px 14px 0;
+  border:0;
+  border-top:1px solid #e1e6ef;
+  border-bottom:1px solid #e1e6ef;
+  border-radius:0;
+  background:transparent;
+}
+.result-numbers div+div{padding-left:22px;border-left:1px solid #e1e6ef}
+.result-numbers span{
+  margin:0 0 13px;
+  color:#8794ad;
+  font-size:11px;font-weight:650;letter-spacing:.08em;
+}
+.result-numbers strong{
+  color:#243761;
+  font-size:36px;font-weight:720;letter-spacing:-.045em;
+}
+.result-rank{
+  margin:0 0 28px;
+  padding:11px 0;
+  border:0;
+  border-top:1px solid #e1e6ef;
+  border-bottom:1px solid #e1e6ef;
+  border-radius:0;
+  color:#65748f;
+  background:transparent;
+  font-size:12px;font-weight:650;line-height:1.5;
+}
+.result-card label{margin:0 0 8px;color:#586b8c;font-size:11px;font-weight:700;letter-spacing:.06em}
+.result-card input{
+  height:50px;margin:0 0 14px;padding:0 15px;
+  border:1px solid #dce3ee;border-radius:8px;
+  color:#243761;background:#fff;font-size:14px;
+}
+.result-card input:focus{border-color:#6680cf;box-shadow:0 0 0 3px rgba(70,105,220,.09)}
+.result-card .primary-button{
+  height:50px;border-radius:9px;
+  background:#4a68c8;
+  box-shadow:0 8px 17px rgba(65,91,183,.16);
+  font-size:15px;font-weight:700;letter-spacing:.04em;
+}
+.result-card .primary-button:hover{background:#405bb3;box-shadow:0 10px 20px rgba(65,91,183,.2)}
+.submit-hint{margin:12px 0 0;color:#929caf;font-size:10px;font-weight:500;line-height:1.6}
+@media(max-width:560px){
+  .result-card{padding:34px 23px 25px;border-radius:20px}
+  .result-card::before{left:23px;right:23px}
+  .result-card h2{margin-right:42px;margin-bottom:25px;font-size:clamp(29px,8.5vw,36px)}
+  .result-numbers div,.result-numbers div:first-child{min-height:94px;padding:13px 13px 12px 0}
+  .result-numbers div+div{padding-left:15px}
+  .result-numbers strong{font-size:31px}
+}
