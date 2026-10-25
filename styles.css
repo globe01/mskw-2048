@@ -1541,3 +1541,29 @@ body{color:var(--ink);background:#f6f8fb}
 .flow-list li:nth-child(1){border-left:2px solid #d8e5f7;padding-left:9px}
 .flow-list li:nth-child(2){border-left:2px solid #e6d9f0;padding-left:9px}
 .flow-list li:nth-child(3){border-left:2px solid #f0e2cf;padding-left:9px}
+
+/* Remove visual noise from the accent pass: color belongs to surfaces and markers, not rails. */
+.leaderboard li.rank-2,.leaderboard li.rank-3,.leaderboard li.rank-4,.leaderboard li.rank-5{
+  margin-bottom:6px;border:0!important;border-radius:9px;background:#fafbfe!important
+}
+.leaderboard li.rank-3{background:#fcfaff!important}
+.leaderboard li.rank-4{background:#fffdf9!important}
+.leaderboard li.rank-5{background:#fafdfb!important}
+.leaderboard li.rank-2 .leader-bar i,.leaderboard li.rank-3 .leader-bar i,.leaderboard li.rank-4 .leader-bar i,.leaderboard li.rank-5 .leader-bar i{background:#8198bd}
+.mode-card .mode-row-solo,.mode-card .mode-row-duo{border-left:0;background:#f7faff}
+.mode-card .mode-row-duo{background:#fbf8fe}
+.flow-list{border-top:0}
+.flow-list li,.flow-list li:nth-child(1),.flow-list li:nth-child(2),.flow-list li:nth-child(3){border:0;padding:9px 0;margin-bottom:3px}
+.flow-list li>span{display:grid;place-items:center;width:28px;height:26px;border-radius:7px;background:#eef4fc;color:#5d82b9}
+.flow-list li:nth-child(2)>span{background:#f4edfa;color:#8765ad}
+.flow-list li:nth-child(3)>span{background:#fbf3e8;color:#a67d4c}
+
+/* Final restraint pass: remove rails and separators that compete with the content. */
+.leaderboard li,.leaderboard li.rank-1,
+.leaderboard li:hover,.leaderboard li.rank-1:hover{
+  border-left:0!important;
+  border-bottom:0!important;
+  border-color:transparent!important;
+}
+.session-intro{border-bottom:0}
+.wasd-control{border-left:0}
