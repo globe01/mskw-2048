@@ -1,0 +1,399 @@
+(() => {
+  'use strict';
+
+  const SIZE = 4;
+  // Keep the travel animation close to the original 2048 feel. Inputs that
+  // arrive during the animation are queued instead of being overwritten.
+  const MOVE_MS = 105;
+  const MERGE_FADE_MS = 120;
+  const MERGE_POP_MS = 150;
+  const SPAWN_MS = 145;
+  const INPUT_QUEUE_LIMIT = 8;
+  const STORAGE_KEY = 'ma-shang-kai-wan-2048-leaderboards-v1';
+  const BACKUP_KEY = 'ma-shang-kai-wan-2048-leaderboards-backup-v1';
+  const SETTINGS_KEY = 'ma-shang-kai-wan-2048-settings-v1';
+  const defaults = { solo: 30, duo: 45 };
+  const legacyDefaults = { solo: 20, duo: 30 };
+  const $ = (selector) => document.querySelector(selector);
+  const boardEl = $('#board');
+  const tileLayer = boardEl.querySelector('.tile-layer');
+  const scorePopLayer = boardEl.querySelector('.score-pop-layer');
+  const scoreEl = $('#score');
+  const timerEl = $('#timer');
+  const maxTileEl = $('#max-tile');
+  const timerBox = document.querySelector('.timer');
+  const overlay = $('#game-overlay');
+  const overlayAction = $('#overlay-action');
+  const startButton = $('#start-button');
+  const restartButton = $('#restart-button');
+  const pendingResultButton = $('#pending-result-button');
+  const durationInput = $('#duration-input');
+  const durationMinus = $('#duration-minus');
+  const durationPlus = $('#duration-plus');
+  const modeSwitch = $('.mode-switch');
+  const boardWrap = $('.board-wrap');
+  const guideText = $('#guide-text');
+  const leaderboardTitle = $('#leaderboard-title');
+  const leaderboardEl = $('#leaderboard');
+  const leaderboardEmpty = $('#leaderboard-empty');
+  const leaderboardStatus = $('#leaderboard-status');
+  const backupLeaderboardButton = $('#backup-leaderboard');
+  const restoreLeaderboardButton = $('#restore-leaderboard');
+  const clearLeaderboardButton = $('#clear-leaderboard');
+  const resultDialog = $('#result-dialog');
+  const resultForm = $('#result-form');
+  const resultScore = $('#result-score');
+  const resultMax = $('#result-max');
+  const resultRank = $('#result-rank');
+  const resultTitle = $('#result-title');
+  const playerName = $('#player-name');
+  const submitHint = $('#submit-hint');
+  const overlayTitle = $('#overlay-title');
+  const overlayMessage = $('#overlay-message');
+
+  let mode = 'solo'; let duration = defaults.solo; let tiles = []; let nextId = 1; let score = 0; let maxTile = 0;
+  let running = false; let modeSwitching = false; let modeSwitchTimer = null; let animating = false; let directionQueue = []; let endAt = 0; let timerId = null; let lastResult = null; let submitted = false; let gameVersion = 0;
+  let touchStartX = 0; let touchStartY = 0; let touchPointerId = null; let gestureStartedAt = 0;
+  let remoteLeaderboards = null; let adminTokenValue = '';
+  const domTiles = new Map();
+  const memoryStorage = new Map();
+
+  const loadJson = (key, fallback) => { if (memoryStorage.has(key)) return memoryStorage.get(key); try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; } };
+  const saveJson = (key, value) => { memoryStorage.set(key, value); try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) { /* 离线文件或存储受限时，本次页面仍可继续使用。 */ } };
+  const leaderboards = () => remoteLeaderboards || loadJson(STORAGE_KEY, { solo: [], duo: [] });
+  const localLeaderboards = () => loadJson(STORAGE_KEY, { solo: [], duo: [] });
+  async function apiRequest(endpoint, options = {}) {
+    if (window.location.protocol === 'file:') throw new Error('offline');
+    const response = await fetch(endpoint, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, cache: 'no-store' });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `http_${response.status}`);
+    return body;
+  }
+  function setRemoteLeaderboards(data) {
+    if (!data || !Array.isArray(data.solo) || !Array.isArray(data.duo)) return false;
+    remoteLeaderboards = { solo: data.solo, duo: data.duo }; saveJson(STORAGE_KEY, remoteLeaderboards); return true;
+  }
+  async function syncServerLeaderboards() {
+    try { const data = await apiRequest('/api/leaderboard'); if (setRemoteLeaderboards(data)) { setLeaderboardStatus('已连接现场排行榜'); renderLeaderboard(); } }
+    catch (_) { setLeaderboardStatus('离线模式：成绩保存在本机'); }
+  }
+  const emptyBoard = () => Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+
+  function tileGeometry(tile) {
+    const gap = Number.parseFloat(getComputedStyle(boardEl).getPropertyValue('--gap')) || 12;
+    const cell = (tileLayer.clientWidth - (gap * 3)) / SIZE;
+    return { left: tile.c * (cell + gap), top: tile.r * (cell + gap), cell };
+  }
+  function positionTile(element, tile) {
+    element.style.setProperty('--col', tile.c); element.style.setProperty('--row', tile.r);
+    const geometry = tileGeometry(tile);
+    element.style.left = `${geometry.left}px`; element.style.top = `${geometry.top}px`;
+    element.style.width = `${geometry.cell}px`; element.style.height = `${geometry.cell}px`;
+  }
+  function tileClass(value) { return value <= 2048 ? `tile tile-${value}` : 'tile tile-super'; }
+  function createTile(tile, animate = false) {
+    const element = document.createElement('div'); element.className = tileClass(tile.value); element.dataset.id = tile.id; element.setAttribute('role', 'gridcell'); element.setAttribute('aria-label', String(tile.value));
+    const inner = document.createElement('div'); inner.className = `tile-inner${animate ? ' tile-new' : ''}`; inner.textContent = tile.value; element.appendChild(inner);
+    positionTile(element, tile); tileLayer.appendChild(element); domTiles.set(tile.id, element); return element;
+  }
+  function updateTileElement(element, tile) { element.className = tileClass(tile.value); element.dataset.id = tile.id; element.setAttribute('aria-label', String(tile.value)); const inner = element.querySelector('.tile-inner'); inner.className = 'tile-inner'; inner.textContent = tile.value; positionTile(element, tile); }
+  function renderStatic() { tileLayer.replaceChildren(); domTiles.clear(); tiles.forEach((tile) => createTile(tile)); scoreEl.textContent = score; maxTileEl.textContent = maxTile || '—'; }
+  function showScorePop(amount, tile) {
+    if (!amount || !tile) return;
+    const pop = document.createElement('span');
+    pop.className = 'score-pop';
+    pop.textContent = `+${amount}`;
+    pop.style.setProperty('--pop-col', tile.c);
+    pop.style.setProperty('--pop-row', tile.r);
+    const gap = Number.parseFloat(getComputedStyle(boardEl).getPropertyValue('--gap')) || 12;
+    const cell = (tileLayer.clientWidth - (gap * 3)) / SIZE;
+    pop.style.left = `${tile.c * (cell + gap) + cell / 2}px`;
+    pop.style.top = `${tile.r * (cell + gap) + cell / 2}px`;
+    scorePopLayer.appendChild(pop);
+    setTimeout(() => pop.remove(), 620);
+  }
+  function randomInt(max) {
+    if (max <= 0) return 0;
+    const cryptoApi = window.crypto;
+    if (cryptoApi && typeof cryptoApi.getRandomValues === 'function') {
+      const range = 0x100000000;
+      const limit = range - (range % max);
+      const sample = new Uint32Array(1);
+      do { cryptoApi.getRandomValues(sample); } while (sample[0] >= limit);
+      return sample[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  }
+  function randomEmptyCell() {
+    const occupied = new Set(tiles.map((tile) => `${tile.r},${tile.c}`));
+    const cells = [];
+    for (let r = 0; r < SIZE; r += 1) for (let c = 0; c < SIZE; c += 1) if (!occupied.has(`${r},${c}`)) cells.push([r, c]);
+    return cells.length ? cells[randomInt(cells.length)] : null;
+  }
+  function addRandomTile() {
+    const cell = randomEmptyCell();
+    if (!cell) return null;
+    const tile = { id: nextId++, value: randomInt(10) === 0 ? 4 : 2, r: cell[0], c: cell[1], spawned: true };
+    tiles.push(tile);
+    return tile;
+  }
+  function initBoard() { tiles = []; nextId = 1; score = 0; maxTile = 0; addRandomTile(); addRandomTile(); maxTile = Math.max(...tiles.map((tile) => tile.value)); scorePopLayer.replaceChildren(); renderStatic(); }
+  function tileAt(r, c) { return tiles.find((tile) => tile.r === r && tile.c === c); }
+  function valueBoard() { const values = emptyBoard(); tiles.forEach((tile) => { values[tile.r][tile.c] = tile.value; }); return values; }
+  function canMove() { const values = valueBoard(); for (let r = 0; r < SIZE; r += 1) for (let c = 0; c < SIZE; c += 1) { if (!values[r][c]) return true; if (c < SIZE - 1 && values[r][c] === values[r][c + 1]) return true; if (r < SIZE - 1 && values[r][c] === values[r + 1][c]) return true; } return false; }
+  function orderedLine(index, direction) { const cells = []; for (let i = 0; i < SIZE; i += 1) { const r = direction === 'left' || direction === 'right' ? index : i; const c = direction === 'left' || direction === 'right' ? i : index; cells.push([r, c]); } if (direction === 'right' || direction === 'down') cells.reverse(); return cells; }
+  function calculateMove(direction) {
+    const next = []; const moves = []; const merged = []; let gained = 0;
+    for (let index = 0; index < SIZE; index += 1) {
+      const cells = orderedLine(index, direction); const line = cells.map(([r, c]) => tileAt(r, c)).filter(Boolean); let target = 0;
+      for (let i = 0; i < line.length; i += 1) {
+        const source = line[i]; const [r, c] = cells[target]; const following = line[i + 1];
+        if (following && following.value === source.value) { const result = { id: source.id, value: source.value * 2, r, c, spawned: false }; next.push(result); moves.push({ id: source.id, r, c }); moves.push({ id: following.id, r, c }); merged.push({ primary: result, consumed: following.id }); gained += result.value; i += 1; }
+        else { const result = { id: source.id, value: source.value, r, c, spawned: false }; next.push(result); moves.push({ id: source.id, r, c }); }
+        target += 1;
+      }
+    }
+    const changed = moves.some((move) => { const old = tiles.find((tile) => tile.id === move.id); return old && (old.r !== move.r || old.c !== move.c); });
+    return { next, moves, merged, gained, changed };
+  }
+  function playAnimation(element, keyframes, options) {
+    if (!element || typeof element.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+    const animation = element.animate(keyframes, options);
+    return animation.finished.catch(() => undefined);
+  }
+  function animateMove(result) {
+    animating = true;
+    const version = gameVersion;
+    const movementPromises = result.moves.map((move) => {
+      const element = domTiles.get(move.id); if (!element) return Promise.resolve();
+      const before = element.getBoundingClientRect();
+      element.style.transition = 'none';
+      positionTile(element, move);
+      const after = element.getBoundingClientRect();
+      const dx = before.left - after.left; const dy = before.top - after.top;
+      return playAnimation(element, [{ transform: `translate3d(${dx}px,${dy}px,0) scale(1)` }, { transform: 'translate3d(0,0,0) scale(1)' }], { duration: MOVE_MS, easing: 'cubic-bezier(.22,.88,.22,1)', fill: 'forwards' }).then(() => { element.style.transform = ''; element.style.transition = ''; });
+    });
+    Promise.all(movementPromises).then(() => {
+      if (version !== gameVersion) return;
+      const mergePromises = [];
+      result.merged.forEach(({ primary, consumed }) => {
+        const consumedEl = domTiles.get(consumed); const primaryEl = domTiles.get(primary.id);
+        if (consumedEl) { consumedEl.style.zIndex = '1'; const consumedInner = consumedEl.querySelector('.tile-inner'); mergePromises.push(playAnimation(consumedInner, [{ opacity: 1, transform: 'translateZ(0) scale(1)' }, { opacity: .42, transform: 'translateZ(0) scale(.985)', offset: .58 }, { opacity: 0, transform: 'translateZ(0) scale(.97)' }], { duration: MERGE_FADE_MS, easing: 'cubic-bezier(.32,0,.72,1)', fill: 'forwards' })); }
+        if (primaryEl) { primaryEl.style.zIndex = '3'; updateTileElement(primaryEl, primary); const primaryInner = primaryEl.querySelector('.tile-inner'); mergePromises.push(playAnimation(primaryInner, [{ transform: 'translateZ(0) scale(.985)' }, { transform: 'translateZ(0) scale(1.035)', offset: .38 }, { transform: 'translateZ(0) scale(.997)', offset: .72 }, { transform: 'translateZ(0) scale(1)' }], { duration: MERGE_POP_MS, easing: 'cubic-bezier(.22,.88,.28,1)', fill: 'none' })); }
+      });
+      tiles.forEach((tile) => { if (!result.next.some((nextTile) => nextTile.id === tile.id) && !result.merged.some((merge) => merge.consumed === tile.id)) { const old = domTiles.get(tile.id); if (old) old.remove(); domTiles.delete(tile.id); } });
+      tiles = result.next; addRandomTile(); const spawned = tiles.find((tile) => tile.spawned); tiles.forEach((tile) => { tile.spawned = false; });
+      tiles.forEach((tile) => { const element = domTiles.get(tile.id) || createTile(tile, false); if (!result.merged.some((merge) => merge.primary.id === tile.id)) updateTileElement(element, tile); });
+      if (spawned) { const spawnEl = domTiles.get(spawned.id); if (spawnEl) { const spawnInner = spawnEl.querySelector('.tile-inner'); mergePromises.push(playAnimation(spawnInner, [{ opacity: 0, transform: 'translateZ(0) scale(.58)' }, { opacity: 1, transform: 'translateZ(0) scale(1.045)', offset: .72 }, { opacity: 1, transform: 'translateZ(0) scale(1)' }], { duration: SPAWN_MS, easing: 'cubic-bezier(.22,.88,.28,1)', fill: 'none' })); } }
+      score += result.gained; tiles.forEach((tile) => { if (tile.value > maxTile) maxTile = tile.value; }); scoreEl.textContent = score; maxTileEl.textContent = maxTile || '—';
+      if (result.gained) showScorePop(result.gained, result.merged[0] && result.merged[0].primary);
+      Promise.all(mergePromises).then(() => {
+        if (version !== gameVersion) return;
+        result.merged.forEach(({ consumed }) => { const consumedEl = domTiles.get(consumed); if (consumedEl) { consumedEl.remove(); domTiles.delete(consumed); } });
+        result.merged.forEach(({ primary }) => { const primaryEl = domTiles.get(primary.id); if (primaryEl) primaryEl.style.zIndex = ''; });
+        animating = false; if (running && performance.now() >= endAt) finishGame('time'); else if (!canMove()) finishGame('no-moves');
+        drainDirectionQueue();
+      });
+    });
+  }
+  function drainDirectionQueue() {
+    if (!running || animating) return;
+    if (performance.now() >= endAt) { directionQueue = []; finishGame('time'); return; }
+    while (directionQueue.length && running && !animating) {
+      const direction = directionQueue.shift();
+      const result = calculateMove(direction);
+      if (!result.changed) continue;
+      animateMove(result);
+    }
+  }
+  function move(direction) {
+    if (!running) return;
+    if (performance.now() >= endAt) { directionQueue = []; if (!animating) finishGame('time'); return; }
+    if (animating) { if (directionQueue.length < INPUT_QUEUE_LIMIT) directionQueue.push(direction); return; }
+    const result = calculateMove(direction);
+    if (!result.changed) { drainDirectionQueue(); return; }
+    animateMove(result);
+  }
+  function normalizeDuration() { const parsed = Number.parseInt(durationInput.value, 10); const value = Math.max(5, Math.min(180, Number.isFinite(parsed) ? parsed : defaults[mode])); durationInput.value = value; duration = value; const settings = loadJson(SETTINGS_KEY, {}); settings[mode] = value; saveJson(SETTINGS_KEY, settings); updateTimerDisplay(duration * 1000); }
+  function previewDuration() { const value = Number.parseInt(durationInput.value, 10); updateTimerDisplay(Math.max(5, Math.min(180, Number.isFinite(value) ? value : duration)) * 1000); }
+  function resultRankFor(result) { const entries = leaderboards()[result.mode] || []; const candidate = { score: result.score, maxTile: result.maxTile, at: result.at }; const ranked = [...entries, candidate].sort((a, b) => b.score - a.score || b.maxTile - a.maxTile || a.at - b.at); const rank = ranked.indexOf(candidate) + 1; return rank <= 5 ? rank : null; }
+  function setModeControls(disabled) { document.querySelectorAll('.mode-button').forEach((button) => { button.disabled = disabled; }); durationInput.disabled = disabled; durationMinus.disabled = disabled; durationPlus.disabled = disabled; }
+  function setLeaderboardControls(disabled) { [backupLeaderboardButton, restoreLeaderboardButton, clearLeaderboardButton].forEach((button) => { if (button) button.disabled = disabled; }); }
+  function readyGuideText() { const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0; if (touchDevice) return mode === 'solo' ? '\u6ed1\u52a8\u68cb\u76d8\u63a7\u5236\u79fb\u52a8' : '\u53cc\u4eba\u6a21\u5f0f\u8bf7\u4f7f\u7528\u5206\u5de5\u6309\u952e'; return mode === 'solo' ? '\u65b9\u5411\u952e\u63a7\u5236\u79fb\u52a8' : '\u7532\u4e0a\u4e0b \u00b7 \u4e59\u5de6\u53f3'; }
+  function playingGuideText() { const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0; if (touchDevice) return mode === 'solo' ? '\u6ed1\u52a8\u68cb\u76d8\u64cd\u4f5c' : '\u53cc\u4eba\u6a21\u5f0f\u8bf7\u4f7f\u7528\u5206\u5de5\u6309\u952e'; return mode === 'solo' ? '\u65b9\u5411\u952e\u64cd\u4f5c' : '\u7532\u4e0a\u4e0b \u00b7 \u4e59\u5de6\u53f3'; }
+  function resetToReady() {
+    if (running) {
+      if (!window.confirm('\u786e\u5b9a\u7ed3\u675f\u672c\u5c40\u5e76\u8fd4\u56de\u51c6\u5907\u754c\u9762\u5417\uff1f\u5f53\u524d\u6210\u7ee9\u4ecd\u53ef\u4fdd\u5b58\u3002')) return;
+      finishGame('stopped');
+      return;
+    }
+    if (lastResult && !submitted && !window.confirm('\u4e0a\u4e00\u5c40\u6210\u7ee9\u5c1a\u672a\u4fdd\u5b58\uff0c\u786e\u5b9a\u653e\u5f03\u8fd9\u6761\u6210\u7ee9\u5e76\u91cd\u65b0\u51c6\u5907\u5417\uff1f')) return;
+    if (modeSwitchTimer) { window.clearTimeout(modeSwitchTimer); modeSwitchTimer = null; }
+    modeSwitching = false; boardWrap.classList.remove('turn-out', 'turn-in');
+    gameVersion += 1;
+    running = false;
+    animating = false;
+    directionQueue = [];
+    normalizeDuration();
+    if (timerId) cancelAnimationFrame(timerId);
+    timerId = null;
+    initBoard();
+    updateTimerDisplay(duration * 1000);
+    overlayTitle.textContent = '准备开始';
+    overlayMessage.textContent = '准备好后点击开始，计时才会正式启动。';
+    overlay.classList.add('visible');
+    startButton.disabled = false;
+    restartButton.disabled = true;
+    restartButton.textContent = '重来';
+    setModeControls(false);
+    setLeaderboardControls(false);
+    guideText.textContent = readyGuideText();
+    lastResult = null;
+    submitted = false;
+    pendingResultButton.hidden = true;
+    document.body.classList.remove('is-playing');
+    boardEl.blur();
+  }
+  function updateModeUi() { modeSwitch.classList.toggle('is-duo', mode === 'duo'); boardEl.classList.toggle('mode-solo', mode === 'solo'); boardEl.classList.toggle('mode-duo', mode === 'duo'); document.querySelectorAll('.mode-button').forEach((button) => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); }); const settings = loadJson(SETTINGS_KEY, {}); const savedDuration = Number(settings[mode]); duration = Number.isFinite(savedDuration) && savedDuration >= 5 && savedDuration <= 180 && savedDuration !== legacyDefaults[mode] ? savedDuration : defaults[mode]; settings[mode] = duration; saveJson(SETTINGS_KEY, settings); durationInput.value = duration; leaderboardTitle.textContent = mode === 'solo' ? '单人' : '双人'; guideText.textContent = readyGuideText(); renderLeaderboard(); updateTimerDisplay(duration * 1000); }
+  function updateTimerDisplay(ms) { const seconds = Math.max(0, ms / 1000); timerEl.textContent = seconds.toFixed(1); timerBox.classList.toggle('urgent', seconds <= 5 && seconds > 0); }
+  function tick() { if (!running) return; const remaining = endAt - performance.now(); updateTimerDisplay(remaining); if (remaining <= 0) { if (animating) { timerId = requestAnimationFrame(tick); return; } finishGame('time'); return; } timerId = requestAnimationFrame(tick); }
+  function startGame() { if (running) return; if (lastResult && !submitted && !window.confirm('\u4e0a\u4e00\u5c40\u6210\u7ee9\u5c1a\u672a\u4fdd\u5b58\uff0c\u786e\u5b9a\u653e\u5f03\u8fd9\u6761\u6210\u7ee9\u5e76\u5f00\u59cb\u65b0\u5c40\u5417\uff1f')) return; if (lastResult && !submitted) { lastResult = null; pendingResultButton.hidden = true; } if (modeSwitchTimer) { window.clearTimeout(modeSwitchTimer); modeSwitchTimer = null; } modeSwitching = false; gameVersion += 1; normalizeDuration(); initBoard(); running = true; animating = false; directionQueue = []; submitted = false; endAt = performance.now() + duration * 1000; overlay.classList.remove('visible'); startButton.disabled = true; restartButton.disabled = false; restartButton.textContent = '\u7ed3\u675f\u672c\u5c40'; restartButton.title = '\u7ed3\u675f\u672c\u5c40\u524d\u9700\u8981\u786e\u8ba4'; setModeControls(true); setLeaderboardControls(true); guideText.textContent = playingGuideText(); document.body.classList.add('is-playing'); timerId = requestAnimationFrame(tick); boardEl.focus(); }
+  function finishGame(reason) { if (!running) return; gameVersion += 1; running = false; directionQueue = []; cancelAnimationFrame(timerId); timerId = null; updateTimerDisplay(0); startButton.disabled = false; restartButton.disabled = false; restartButton.textContent = '\u91cd\u6765'; restartButton.title = ''; setModeControls(false); setLeaderboardControls(false); guideText.textContent = readyGuideText() + ' \u00b7 \u70b9\u51fb\u91cd\u6765\u91cd\u65b0\u51c6\u5907'; document.body.classList.remove('is-playing'); lastResult = { mode, score, maxTile, duration, reason, at: Date.now() }; pendingResultButton.hidden = true; resultScore.textContent = score; resultMax.textContent = maxTile || '\u2014'; const rank = resultRankFor(lastResult); resultRank.textContent = rank ? '\u5f53\u524d\u6210\u7ee9\u53ef\u8fdb\u5165' + (mode === 'solo' ? '\u5355\u4eba' : '\u53cc\u4eba') + '\u699c\u7b2c ' + rank + ' \u540d\u3001\u4fdd\u5b58\u540e\u66f4\u65b0\u699c\u5355\u3002' : '\u5f53\u524d\u6210\u7ee9\u672a\u8fdb\u5165\u524d\u4e94\u3001\u65e0\u6cd5\u52a0\u5165\u6392\u884c\u699c\u3002'; resultTitle.textContent = reason === 'no-moves' ? '\u68cb\u76d8\u5df2\u6ee1' : reason === 'stopped' ? '\u672c\u5c40\u5df2\u7ed3\u675f' : '\u65f6\u95f4\u5230'; submitted = false; playerName.value = ''; submitHint.textContent = '\u63d0\u4ea4\u540e\u540c\u6b65\u73b0\u573a\u6392\u884c\u699c\uff0c\u8bef\u5173\u95ed\u4e5f\u53ef\u7ee7\u7eed\u4fdd\u5b58'; if (typeof resultDialog.showModal === 'function') resultDialog.showModal(); else resultDialog.setAttribute('open', ''); }
+  function backupSnapshot() { return { savedAt: new Date().toISOString(), data: leaderboards() }; }
+  function saveLeaderboardBackup() { const snapshot = backupSnapshot(); saveJson(BACKUP_KEY, snapshot); return snapshot; }
+  function downloadLeaderboardBackup(snapshot) {
+    try {
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob); const link = document.createElement('a');
+      link.href = url; link.download = `码上开玩-2048排行榜备份-${snapshot.savedAt.slice(0, 10)}.json`;
+      document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (_) { /* 本机备份仍然保留 */ }
+  }
+  function setLeaderboardStatus(message) { if (leaderboardStatus) leaderboardStatus.textContent = message; }
+  function renderLeaderboard() {
+    const data = (leaderboards()[mode] || []).slice(0, 5); const highest = Math.max(1, ...data.map((entry) => Number(entry.score) || 0));
+    leaderboardEl.replaceChildren(); leaderboardEmpty.hidden = data.length > 0;
+    data.forEach((entry, index) => {
+      const item = document.createElement('li'); item.className = index === 0 ? 'rank-top' : '';
+      item.style.setProperty('--score-ratio', `${Math.max(index === 0 ? 14 : 7, ((Number(entry.score) || 0) / highest) * 100)}%`);
+      const main = document.createElement('div'); main.className = 'leader-main';
+      const name = document.createElement('span'); name.className = 'leader-name'; name.textContent = entry.name;
+      const meta = document.createElement('span'); meta.className = 'leader-meta'; meta.textContent = '最高 ' + (entry.maxTile || '—') + '  ·  ' + (entry.duration || '—') + ' 秒'; const bar = document.createElement('span'); bar.className = 'leader-bar'; const fill = document.createElement('i'); bar.appendChild(fill); main.append(name, meta, bar);
+      const value = document.createElement('span'); value.className = 'leader-score'; value.textContent = String(entry.score);
+      const max = document.createElement('small'); max.textContent = entry.maxTile || '—'; value.appendChild(max);
+      item.append(main, value); leaderboardEl.appendChild(item);
+    });
+    restoreLeaderboardButton.hidden = !loadJson(BACKUP_KEY, null);
+  }
+  async function adminRequest(endpoint, payload) {
+    if (!adminTokenValue) adminTokenValue = window.prompt('请输入排行榜管理员密钥');
+    if (!adminTokenValue) throw new Error('cancelled');
+    return apiRequest(endpoint, { method: 'POST', headers: { 'X-Admin-Token': adminTokenValue }, body: JSON.stringify(payload || {}) });
+  }
+  async function backupLeaderboard() {
+    const snapshot = saveLeaderboardBackup(); downloadLeaderboardBackup(snapshot);
+    try { await adminRequest('/api/admin/backup'); setLeaderboardStatus('已备份现场排行榜'); }
+    catch (_) { setLeaderboardStatus('已下载本机备份服务器备份未连接'); }
+    renderLeaderboard();
+  }
+  async function clearLeaderboard() {
+    if (!confirm('清空前会自动备份当前排行榜。确定清空吗')) return;
+    const snapshot = saveLeaderboardBackup(); downloadLeaderboardBackup(snapshot);
+    try {
+      const result = await adminRequest('/api/admin/clear'); setRemoteLeaderboards(result.data); setLeaderboardStatus('已备份并清空现场排行榜');
+    } catch (_) { saveJson(STORAGE_KEY, { solo: [], duo: [] }); remoteLeaderboards = { solo: [], duo: [] }; setLeaderboardStatus('已备份并清空本机排行榜'); }
+    renderLeaderboard();
+  }
+  async function restoreLeaderboard() {
+    const snapshot = loadJson(BACKUP_KEY, null); if (!snapshot || !snapshot.data) return;
+    if (!confirm('将恢复最近一次备份并覆盖当前排行榜。确定恢复吗')) return;
+    try { const result = await adminRequest('/api/admin/restore', { data: snapshot.data }); setRemoteLeaderboards(result.data); setLeaderboardStatus('已恢复现场排行榜'); }
+    catch (_) { setRemoteLeaderboards({ solo: snapshot.data.solo || [], duo: snapshot.data.duo || [] }); setLeaderboardStatus('已恢复本机备份'); }
+    renderLeaderboard();
+  }
+  async function submitScore() {
+    if (!lastResult || submitted) return;
+    submitted = true;
+    pendingResultButton.hidden = true;
+    const name = (playerName.value.trim() || '匿名玩家').slice(0, 12);
+    const entry = { mode: lastResult.mode, name, score: lastResult.score, maxTile: lastResult.maxTile, duration: lastResult.duration };
+    try {
+      const result = await apiRequest('/api/scores', { method: 'POST', body: JSON.stringify(entry) });
+      if (result.mode && Array.isArray(result.entries)) { const all = leaderboards(); all[result.mode] = result.entries; setRemoteLeaderboards(all); }
+      submitHint.textContent = result.accepted ? '已保存到现场排行榜' : '成绩已记录';
+    } catch (_) {
+      const all = localLeaderboards(); all[lastResult.mode] = [...(all[lastResult.mode] || []), { ...entry, at: lastResult.at }].sort((a, b) => b.score - a.score || b.maxTile - a.maxTile || a.at - b.at).slice(0, 5); saveJson(STORAGE_KEY, all); remoteLeaderboards = all;
+      submitHint.textContent = '服务器暂时不可用已保存到本机';
+    }
+    renderLeaderboard(); setTimeout(() => { if (resultDialog.open) resultDialog.close(); }, 500);
+  }
+  function dismissResultDialog() {
+    if (!lastResult || submitted) { if (resultDialog.open) resultDialog.close(); return; }
+    pendingResultButton.hidden = false;
+    submitHint.textContent = '本局成绩尚未保存点击保存上一局成绩可继续提交';
+    if (resultDialog.open) resultDialog.close();
+  }
+
+  document.querySelectorAll('.mode-button').forEach((button) => button.addEventListener('click', () => {
+    if (running || modeSwitching || button.dataset.mode === mode) return;
+    modeSwitching = true;
+    boardWrap.classList.remove('turn-in');
+    boardWrap.classList.add('turn-out');
+    modeSwitchTimer = window.setTimeout(() => {
+      mode = button.dataset.mode;
+      updateModeUi();
+      initBoard();
+      boardWrap.classList.remove('turn-out');
+      boardWrap.classList.add('turn-in');
+      modeSwitchTimer = window.setTimeout(() => { boardWrap.classList.remove('turn-in'); modeSwitching = false; modeSwitchTimer = null; }, 360);
+    }, 150);
+  }));
+  durationMinus.addEventListener('click', () => { durationInput.value = Math.max(5, (Number.parseInt(durationInput.value, 10) || defaults[mode]) - 5); normalizeDuration(); });
+  durationPlus.addEventListener('click', () => { durationInput.value = Math.min(180, (Number.parseInt(durationInput.value, 10) || defaults[mode]) + 5); normalizeDuration(); });
+  durationInput.addEventListener('input', previewDuration); durationInput.addEventListener('change', normalizeDuration); startButton.addEventListener('click', startGame); restartButton.addEventListener('click', resetToReady); overlayAction.addEventListener('click', startGame);
+  $('#submit-score').addEventListener('click', (event) => { event.preventDefault(); submitScore(); }); $('#close-dialog').addEventListener('click', dismissResultDialog); pendingResultButton.addEventListener('click', () => { if (!lastResult || submitted) return; pendingResultButton.hidden = true; resultDialog.showModal?.(); }); resultDialog.addEventListener('cancel', (event) => { event.preventDefault(); dismissResultDialog(); }); resultForm.addEventListener('submit', (event) => { event.preventDefault(); submitScore(); });
+  backupLeaderboardButton.addEventListener('click', backupLeaderboard); restoreLeaderboardButton.addEventListener('click', restoreLeaderboard); clearLeaderboardButton.addEventListener('click', clearLeaderboard);
+  document.addEventListener('keydown', (event) => { if (!running) return; const directions = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }; const direction = directions[event.key]; if (!direction) return; event.preventDefault(); move(direction); });
+  const swipeConfig = { minDistance: 22, axisBias: 1.12, maxDuration: 900 };
+  function clearGesture() { touchPointerId = null; }
+  function beginGesture(pointerId, clientX, clientY) {
+    if (!running || mode === 'duo' || touchPointerId !== null) return false;
+    touchPointerId = pointerId; touchStartX = clientX; touchStartY = clientY; gestureStartedAt = performance.now();
+    return true;
+  }
+  function endGesture(pointerId, clientX, clientY, event) {
+    if (pointerId !== touchPointerId) return;
+    const dx = clientX - touchStartX; const dy = clientY - touchStartY;
+    clearGesture();
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    const threshold = Math.max(swipeConfig.minDistance, Math.min(38, boardEl.clientWidth * .075));
+    const dominant = Math.max(Math.abs(dx), Math.abs(dy));
+    const secondary = Math.min(Math.abs(dx), Math.abs(dy));
+    if (performance.now() - gestureStartedAt > swipeConfig.maxDuration || distance < threshold || dominant < secondary * swipeConfig.axisBias) return;
+    if (event.cancelable) event.preventDefault();
+    move(Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  }
+  if ('PointerEvent' in window) {
+    boardEl.addEventListener('pointerdown', (event) => {
+      if ((event.pointerType !== 'touch' && event.pointerType !== 'pen') || event.isPrimary === false) return;
+      if (beginGesture(event.pointerId, event.clientX, event.clientY)) boardEl.setPointerCapture?.(event.pointerId);
+    });
+    boardEl.addEventListener('pointerup', (event) => endGesture(event.pointerId, event.clientX, event.clientY, event));
+    boardEl.addEventListener('pointercancel', (event) => { if (event.pointerId === touchPointerId) clearGesture(); });
+  } else {
+    boardEl.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) { clearGesture(); return; }
+      const touch = event.touches[0]; beginGesture('touch', touch.clientX, touch.clientY);
+    }, { passive: true });
+    boardEl.addEventListener('touchmove', (event) => { if (event.touches.length > 1) clearGesture(); }, { passive: true });
+    boardEl.addEventListener('touchend', (event) => {
+      if (!event.changedTouches.length) return;
+      const touch = event.changedTouches[0]; endGesture('touch', touch.clientX, touch.clientY, event);
+    }, { passive: false });
+    boardEl.addEventListener('touchcancel', clearGesture, { passive: true });
+  }
+  document.querySelectorAll('.keys b').forEach((key) => key.addEventListener('click', () => move(key.dataset.direction)));
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.body.classList.add('touch-device');
+  document.querySelector('.cell-layer').innerHTML = '<i class="cell"></i>'.repeat(16); updateModeUi(); initBoard(); syncServerLeaderboards();
+  window.addEventListener('resize', () => tiles.forEach((tile) => { const element = domTiles.get(tile.id); if (element) positionTile(element, tile); }));
+})();

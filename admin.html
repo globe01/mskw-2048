@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#101a35" />
+  <title>码上开玩 · 现场控制台</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-header">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2" opacity=".65"/><rect x="3" y="13" width="8" height="8" rx="2" opacity=".65"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></span><span>码上开玩 <em>· 现场控制台</em></span></div>
+      <a class="back-link" href="/">返回游戏</a>
+    </header>
+
+    <section id="login-view" class="login-view">
+      <div class="login-card">
+        <p class="eyebrow">EVENT CONTROL</p>
+        <h1>排行榜管理</h1>
+        <p class="muted">输入现场管理员密钥后查看和管理成绩。</p>
+        <form id="login-form"><label for="token-input">管理员密钥</label><input id="token-input" type="password" autocomplete="current-password" required placeholder="输入 ADMIN_TOKEN" /><button class="primary" type="submit">进入控制台</button><p id="login-error" class="error" role="alert"></p></form>
+      </div>
+    </section>
+
+    <section id="dashboard-view" hidden>
+      <div class="dashboard-top"><div><p class="eyebrow">LIVE SCOREBOARD</p><h1>活动成绩</h1><p id="last-sync" class="muted">尚未同步</p></div><div class="top-actions"><span id="health" class="health"><i></i>未连接</span><button id="refresh-button" class="quiet">刷新</button><button id="logout-button" class="quiet">退出</button></div></div>
+      <div class="metrics"><article><span>单人榜</span><strong id="solo-count">0</strong><small>前五名</small></article><article><span>双人榜</span><strong id="duo-count">0</strong><small>前五名</small></article><article><span>备份文件</span><strong id="backup-count">0</strong><small>服务器留档</small></article></div>
+      <section class="panel scores-panel"><div class="panel-head"><div class="tabs" role="tablist"><button class="tab active" data-mode="solo" role="tab">单人极速</button><button class="tab" data-mode="duo" role="tab">双人协作</button></div><div class="panel-actions"><button id="backup-button" class="quiet">备份</button><button id="clear-button" class="danger">备份并清空</button></div></div><div class="table-wrap"><table><thead><tr><th>排名</th><th>昵称</th><th>得分</th><th>最高块</th><th>时长</th><th>提交时间</th></tr></thead><tbody id="score-rows"></tbody></table><p id="empty-state" class="empty">暂无成绩</p></div></section>
+      <section class="panel archive-panel"><div class="panel-head"><div><h2>恢复成绩</h2><p class="muted">选择此前导出的 JSON 备份，恢复前会自动保存当前榜单。</p></div><label class="upload-button">选择备份<input id="restore-file" type="file" accept="application/json" /></label></div><p id="action-status" class="action-status" role="status"></p></section>
+    </section>
+  </main>
+  <script src="admin.js"></script>
+</body>
+</html>

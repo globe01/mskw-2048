@@ -1,99 +1,81 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <title>2048</title>
-
-  <link href="style/main.css" rel="stylesheet" type="text/css">
-  <link rel="shortcut icon" href="favicon.ico">
-  <link rel="apple-touch-icon" href="meta/apple-touch-icon.png">
-  <link rel="apple-touch-startup-image" href="meta/apple-touch-startup-image-640x1096.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"> <!-- iPhone 5+ -->
-  <link rel="apple-touch-startup-image" href="meta/apple-touch-startup-image-640x920.png"  media="(device-width: 320px) and (device-height: 480px) and (-webkit-device-pixel-ratio: 2)"> <!-- iPhone, retina -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-
-  <meta name="HandheldFriendly" content="True">
-  <meta name="MobileOptimized" content="320">
-  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0, maximum-scale=1, user-scalable=no, minimal-ui">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#08164a" />
+  <title>码上开玩 · 2048</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="container">
-    <div class="heading">
-      <h1 class="title">2048</h1>
-      <div class="scores-container">
-        <div class="score-container">0</div>
-        <div class="best-container">0</div>
+  <div class="ambient-grid"></div>
+  <main class="page-shell">
+    <header class="hero">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="2" fill="currentColor" opacity=".72"/><rect x="3" y="13" width="8" height="8" rx="2" fill="currentColor" opacity=".72"/><rect x="13" y="13" width="8" height="8" rx="2" fill="currentColor"/></svg></span>
+        <span class="brand-name"><b>码上</b><em>开玩</em></span>
       </div>
-    </div>
-
-    <div class="above-game">
-      <p class="game-intro">Join the numbers and get to the <strong>2048 tile!</strong></p>
-      <a class="restart-button">New Game</a>
-    </div>
-
-    <div class="game-container">
-      <div class="game-message">
-        <p></p>
-        <div class="lower">
-	        <a class="keep-playing-button">Keep going</a>
-          <a class="retry-button">Try again</a>
-        </div>
+      <div class="hero-copy">
+        <h1><strong>双人协作</strong><i>2048</i></h1>
+        <p>默契冲分挑战</p>
       </div>
+      <div class="hero-line" aria-hidden="true"></div>
+    </header>
 
-      <div class="grid-container">
-        <div class="grid-row">
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
+    <section class="game-layout">
+      <section class="game-card glass-panel">
+        <div class="topbar">
+          <div class="mode-switch" role="tablist" aria-label="模式选择">
+            <button class="mode-button active" data-mode="solo" role="tab" aria-selected="true">单人</button>
+            <button class="mode-button" data-mode="duo" role="tab" aria-selected="false">双人</button>
+          </div>
+          <div class="duration-control"><span class="duration-label">时长</span><div class="duration-box"><button id="duration-minus" type="button" aria-label="减少时长">−</button><input id="duration-input" type="number" min="5" max="180" step="5" value="30" aria-label="游戏时长" /><button id="duration-plus" type="button" aria-label="增加时长">+</button><em>秒</em></div></div>
         </div>
-        <div class="grid-row">
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
+
+        <div class="scorebar">
+          <div><span>得分</span><strong id="score">0</strong></div>
+          <div class="timer"><span>剩余</span><strong id="timer">30.0</strong><small>s</small></div>
+          <div><span>最高块</span><strong id="max-tile">—</strong></div>
         </div>
-        <div class="grid-row">
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
+
+        <div class="board-wrap">
+          <div id="board" class="board" role="grid" aria-label="2048 游戏棋盘" tabindex="0">
+            <div class="cell-layer" aria-hidden="true"></div>
+            <div class="tile-layer"></div>
+            <div class="score-pop-layer" aria-hidden="true"></div>
+          </div>
+          <div id="game-overlay" class="game-overlay visible">
+            <div class="overlay-content"><div class="overlay-symbol">2048</div><h2 id="overlay-title">准备开始</h2><p id="overlay-message">准备好后点击开始，计时才会正式启动。</p><button id="overlay-action" class="primary-button">开始游戏</button></div>
+          </div>
         </div>
-        <div class="grid-row">
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-          <div class="grid-cell"></div>
-        </div>
-      </div>
 
-      <div class="tile-container">
+        <div class="game-actions"><button id="start-button" class="primary-button">开始游戏</button><button id="restart-button" class="secondary-button" disabled>重来</button><button id="pending-result-button" class="pending-result-button" type="button" hidden>保存上一局成绩</button></div>
+        <div class="guide"><span id="guide-text">方向键控制移动</span><span class="keys" aria-label="方向键"><b data-direction="up" aria-label="上"><svg viewBox="0 0 24 24" focusable="false"><path d="m6 14 6-6 6 6"/></svg></b><b data-direction="left" aria-label="左"><svg viewBox="0 0 24 24" focusable="false"><path d="m14 6-6 6 6 6"/></svg></b><b data-direction="down" aria-label="下"><svg viewBox="0 0 24 24" focusable="false"><path d="m6 10 6 6 6-6"/></svg></b><b data-direction="right" aria-label="右"><svg viewBox="0 0 24 24" focusable="false"><path d="m10 6 6 6-6 6"/></svg></b></span></div>
+      </section>
 
-      </div>
-    </div>
+      <aside class="side-column">
+        <section class="leaderboard glass-panel">
+          <div class="side-title">
+            <div class="side-title-copy"><span>排行榜</span><b id="leaderboard-title">单人</b></div>
+            <div class="leader-actions" aria-label="排行榜管理">
+              <button id="backup-leaderboard" class="icon-button" type="button" title="备份排行榜" aria-label="备份排行榜"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0-11 4 4m-4-4L8 7M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg><span>备份</span></button>
+              <button id="restore-leaderboard" class="icon-button" type="button" title="恢复最近备份" aria-label="恢复最近备份" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a8 8 0 1 1 1.8 8.9M4 8V4m0 4h4"/></svg><span>恢复</span></button>
+              <button id="clear-leaderboard" class="icon-button danger" type="button" title="备份后清空排行榜" aria-label="备份后清空排行榜"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14m-9 4v6m4-6v6M9 7V5h6v2m-8 0 1 13h8l1-13"/></svg><span>清空</span></button>
+            </div>
+          </div>
+          <ol id="leaderboard"></ol>
+          <p id="leaderboard-empty">还没有成绩</p>
+          <p id="leaderboard-status" class="leaderboard-status" aria-live="polite"></p>
+        </section>
+        <section class="mode-card glass-panel"><div class="side-title"><span>协作方式</span><b>现场挑战</b></div><div class="mode-row"><span class="mode-chip blue">1P</span><p>单人：控制全部方向</p></div><div class="mode-row"><span class="mode-chip violet">2P</span><p>双人：甲上下 · 乙左右</p></div></section>
+      </aside>
+    </section>
+      <footer class="event-credit">计算机学院 <span aria-hidden="true">×</span> 密码与网络空间安全学院</footer>
+  </main>
 
-    <p class="game-explanation">
-      <strong class="important">How to play:</strong> Use your <strong>arrow keys</strong> to move the tiles. When two tiles with the same number touch, they <strong>merge into one!</strong>
-    </p>
-    <hr>
-    <p>
-    <strong class="important">Note:</strong> This site is the official version of 2048. You can play it on your phone via <a href="http://git.io/2048">http://git.io/2048.</a> All other apps or sites are derivatives or fakes, and should be used with caution.
-    </p>
-    <hr>
-    <p>
-    Created by <a href="http://gabrielecirulli.com" target="_blank">Gabriele Cirulli.</a> Based on <a href="https://itunes.apple.com/us/app/1024!/id823499224" target="_blank">1024 by Veewo Studio</a> and conceptually similar to <a href="http://asherv.com/threes/" target="_blank">Threes by Asher Vollmer.</a>
-    </p>
-  </div>
-
-  <script src="js/bind_polyfill.js"></script>
-  <script src="js/classlist_polyfill.js"></script>
-  <script src="js/animframe_polyfill.js"></script>
-  <script src="js/keyboard_input_manager.js"></script>
-  <script src="js/html_actuator.js"></script>
-  <script src="js/grid.js"></script>
-  <script src="js/tile.js"></script>
-  <script src="js/local_storage_manager.js"></script>
-  <script src="js/game_manager.js"></script>
-  <script src="js/application.js"></script>
+  <dialog id="result-dialog" class="result-dialog"><form method="dialog" id="result-form" class="result-card"><button type="button" id="close-dialog" class="close-button" aria-label="关闭（成绩可稍后继续保存）"><svg viewBox="0 0 24 24" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button><span class="result-label">本局完成</span><h2 id="result-title">时间到</h2><div class="result-numbers"><div><span>得分</span><strong id="result-score">0</strong></div><div><span>最高块</span><strong id="result-max">—</strong></div></div><p id="result-rank" class="result-rank" aria-live="polite"></p><label for="player-name">昵称</label><input id="player-name" maxlength="12" autocomplete="off" placeholder="输入昵称" /><button id="submit-score" class="primary-button" value="submit">保存成绩</button><p id="submit-hint">提交后同步现场排行榜，误关闭也可继续保存</p></form></dialog>
+  <script src="app.js"></script>
 </body>
 </html>

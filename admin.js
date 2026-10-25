@@ -1,0 +1,23 @@
+(() => {
+  'use strict';
+  const $ = selector => document.querySelector(selector);
+  const loginView = $('#login-view'); const dashboardView = $('#dashboard-view'); const loginForm = $('#login-form'); const tokenInput = $('#token-input'); const loginError = $('#login-error');
+  const scoreRows = $('#score-rows'); const emptyState = $('#empty-state'); const actionStatus = $('#action-status'); const health = $('#health'); const lastSync = $('#last-sync'); const restoreFile = $('#restore-file');
+  let token = sessionStorage.getItem('2048-admin-token') || ''; let mode = 'solo'; let state = null;
+  const request = async (endpoint, options = {}) => { const response = await fetch(endpoint, { ...options, headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token, ...(options.headers || {}) }, cache: 'no-store' }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error || `http_${response.status}`); return body; };
+  const formatTime = value => { const date = new Date(value); return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }); };
+  function render() {
+    if (!state) return; const entries = state.data[mode] || []; scoreRows.replaceChildren(); emptyState.hidden = entries.length > 0;
+    entries.forEach((entry, index) => { const row = document.createElement('tr'); [String(index + 1).padStart(2, '0'), entry.name, entry.score.toLocaleString(), entry.maxTile || '—', `${entry.duration}s`, formatTime(entry.at)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); }); scoreRows.appendChild(row); });
+    $('#solo-count').textContent = state.data.solo.length; $('#duo-count').textContent = state.data.duo.length; $('#backup-count').textContent = state.backups.length; lastSync.textContent = `最后同步 ${formatTime(state.serverTime)}`;
+  }
+  async function refresh() { try { state = await request('/api/admin/summary'); health.classList.add('ok'); health.innerHTML = '<i></i>服务正常'; render(); return state; } catch (error) { health.classList.remove('ok'); health.innerHTML = '<i></i>连接失败'; actionStatus.textContent = error.message === 'admin_required' ? '密钥已失效，请重新登录。' : `无法读取控制台：${error.message}`; if (error.message === 'admin_required') logout(); throw error; } }
+  function logout() { sessionStorage.removeItem('2048-admin-token'); token = ''; dashboardView.hidden = true; loginView.hidden = false; tokenInput.value = ''; }
+  loginForm.addEventListener('submit', async event => { event.preventDefault(); token = tokenInput.value.trim(); if (!token) return; loginError.textContent = ''; try { sessionStorage.setItem('2048-admin-token', token); await refresh(); if (state) { loginView.hidden = true; dashboardView.hidden = false; } } catch (_) { loginError.textContent = '密钥无效或服务器未连接'; sessionStorage.removeItem('2048-admin-token'); } });
+  $('#refresh-button').addEventListener('click', refresh); $('#logout-button').addEventListener('click', logout);
+  document.querySelectorAll('.tab').forEach(button => button.addEventListener('click', () => { mode = button.dataset.mode; document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item === button)); render(); }));
+  $('#backup-button').addEventListener('click', async () => { try { const result = await request('/api/admin/backup', { method: 'POST', body: '{}' }); actionStatus.textContent = `已备份：${result.file}`; await refresh(); } catch (error) { actionStatus.textContent = `备份失败：${error.message}`; } });
+  $('#clear-button').addEventListener('click', async () => { if (!window.confirm('清空前会自动备份当前榜单。确定清空吗？')) return; try { const result = await request('/api/admin/clear', { method: 'POST', body: '{}' }); actionStatus.textContent = `已备份并清空：${result.file}`; await refresh(); } catch (error) { actionStatus.textContent = `清空失败：${error.message}`; } });
+  restoreFile.addEventListener('change', async () => { const file = restoreFile.files[0]; if (!file) return; try { const snapshot = JSON.parse(await file.text()); if (!snapshot.data || !window.confirm('恢复前会自动备份当前榜单。确定恢复吗？')) return; const result = await request('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data: snapshot.data }) }); actionStatus.textContent = '恢复完成，当前榜单已更新'; state.data = result.data; render(); await refresh(); } catch (error) { actionStatus.textContent = `恢复失败：${error.message}`; } finally { restoreFile.value = ''; } });
+  if (token) { tokenInput.value = token; refresh().then(() => { if (state) { loginView.hidden = true; dashboardView.hidden = false; } }).catch(() => {}); }
+})();

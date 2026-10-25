@@ -1,0 +1,8 @@
+{
+  "name": "ma-shang-kai-wan-2048",
+  "version": "1.0.0",
+  "private": true,
+  "description": "码上开玩 2048 活动游戏服务",
+  "scripts": { "start": "node server.js", "check": "node --check server.js && node --check app.js" },
+  "engines": { "node": ">=18" }
+}
